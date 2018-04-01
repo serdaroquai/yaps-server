@@ -1,6 +1,19 @@
 // sendToServer({'type':'MOVE',id,x,y});
 const log = console.log;
 
+const hashrateMap = {
+	'X17': new BigNumber(17770),
+	'PHI1612': new BigNumber(31650),
+	'Lyra2REv2': new BigNumber(67460),	
+	'NeoScrypt': new BigNumber(1780),
+	'NIST5': new BigNumber(76590),
+	'Tribus': new BigNumber(93180),
+	'Skein': new BigNumber(869470),
+	'Xevan': new BigNumber(4960),
+	'X11Gost': new BigNumber(19650),
+	'Timetravel': new BigNumber(38150),
+}
+
 const updateGame= (() => {
 
 	// last state (by using a closure we make sure updateGame is the only method that has access to state
@@ -22,6 +35,10 @@ const updateGame= (() => {
 				chartEstimations.updateData(JSON.parse(JSON.stringify(currentState)));
 				chartEstimations.update();
 		    });
+
+		    chartHistory.updateData(message.payload.payload)
+		    chartHistory.update()
+
 		    /*
 
 		    // get latest block chances
@@ -63,58 +80,117 @@ const updateGame= (() => {
 })();
 
 
-const makePoolEstimationsChart = (context, config) => {
-	const chart = new Chart(context,config);
-	
-	chart.updateData = (newState) => {
 
+const makeLineChart = (context, config) => {
+	const chart = new  Chart(context, config);
+
+	chart.updateData = (estimation) => {
 		chart.data.datasets.forEach((dataset) => {
-				
-			//clear data
-			dataset.data = [];
-			var key = dataset.label;
-
-			//for each label pull data
-			chart.data.labels.forEach((label) => {
-	        	
-	        	if (typeof newState.poolUpdate[label] !== 'undefined') {
-	        		dataset.data.push(newState.poolUpdate[label][key]);
-	        	} else {
-	        		dataset.data.push(0)
-	        	}
-    		});
-		});
+			if (dataset.label === estimation.algo) {
+				const point = {'x':estimation.timestamp, 'y': new BigNumber(estimation.btcRevenue).multipliedBy(hashrateMap[estimation.algo]).toNumber()}
+				dataset.data.push(point);
+			}
+		})
 	}
 
-	return chart;
+	return chart
 }
 
-const chartPoolEstimations = makePoolEstimationsChart(document.getElementById("poolEstimationsChart").getContext('2d'), {
-    type: 'horizontalBar',
+const chartHistory = makeLineChart(document.getElementById("historyChart").getContext('2d'), {
+    type: 'line',
     data: {
-    	labels: ["X17","PHI1612","Lyra2REv2","NeoScrypt","NIST5","Tribus","Xevan","X11Gost","Skein","Timetravel"],
-		datasets: [{
-			label: "estimateCurrent",
-			borderColor:'blue',
-			borderWidth: 1,
-			data: [],
-			spanGaps: true,
-		},
-		{
-			label: "estimate24hr",
-			borderColor:'red',
-			borderWidth: 1,
-			data: [],
-			spanGaps: true,
-		}]
+    	datasets: [{
+        	label:'X17',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'blue',	
+            data: []
+        },
+        {
+        	label:'Lyra2REv2',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'green',	
+            data: []
+        },
+        {
+        	label:'PHI1612',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'yellow',	
+            data: []
+        },        
+        {
+        	label:'NeoScrypt',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'red',	
+            data: []
+        },
+        {
+        	label:'NIST5',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'brown',	
+            data: []
+        },
+        {
+        	label:'Skein',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'orange',	
+            data: []
+        },
+        {
+        	label:'Xevan',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'black',	
+            data: []
+        },
+        {
+        	label:'X11Gost',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'grey',	
+            data: []
+        },
+        {
+        	label:'Timetravel',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'purple',	
+            data: []
+        }
+        ]
     },
     options: {
+    	
     	scales: {
-			xAxes: [{ticks: {
-				suggestedMin: 0,
-				suggestedMax: 0.001
-			}}]
+			xAxes: [{
+		    	type: 'time',
+		    	time: {
+		    		displayFormats: {
+		    			'millisecond': 'h:mm a',
+		        		'second': 'h:mm a',
+		        		'minute': 'h:mm a',
+		        		'hour': 'h:mm a',
+		           		'day': 'h:mm a',
+		           		'week': 'h:mm a',
+		           		'month': 'h:mm a',
+		           		'quarter': 'h:mm a',
+		           		'year': 'h:mm a'
+		       		}
+		       	}
+		    }],
+			yAxes: [{
+				ticks: {
+					suggestedMin: 0,
+					suggestedMax: 0.001
+				}
+			}]
 		},
+		
     	title:{
     		display:true,
     		text:'Estimation x Hashrate'
