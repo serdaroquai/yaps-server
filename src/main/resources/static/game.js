@@ -12,6 +12,7 @@ const hashrateMap = {
 	'Xevan': new BigNumber(4960),
 	'X11Gost': new BigNumber(19650),
 	'Timetravel': new BigNumber(38150),
+	'Blake2s': new BigNumber(6650000)
 }
 
 const updateGame= (() => {
@@ -161,6 +162,13 @@ const chartHistory = makeLineChart(document.getElementById("historyChart").getCo
         	fill:false,
         	borderColor:'purple',	
             data: []
+        },
+        {
+        	label:'Blake2s',
+        	steppedLine: 'before',
+        	fill:false,
+        	borderColor:'crimson',	
+            data: []
         }
         ]
     },
@@ -230,7 +238,7 @@ const makeBarChart = (context, config) => {
 const chartEstimations = makeBarChart(document.getElementById("estimationsChart").getContext('2d'), {
     type: 'horizontalBar',
     data: {
-    	labels: ["X17","PHI1612","Lyra2REv2","NeoScrypt","NIST5","Tribus","Xevan","X11Gost","Skein","Timetravel"],
+    	labels: ["X17","PHI1612","Lyra2REv2","NeoScrypt","NIST5","Tribus","Xevan","X11Gost","Skein","Timetravel","Blake2s"],
 		datasets: [{
 			label: "BTC / hashrate / day",
 			borderColor:'green',
