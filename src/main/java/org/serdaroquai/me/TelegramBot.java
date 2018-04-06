@@ -101,7 +101,7 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    		String userId = getUserId(update); 
 	    		byte[] tokenBytes = applyDSASig(privateKey, userId);
 	    		
-	    		String message = String.format("userId=%s\ntoken=½s", userId, Base64.getEncoder().encodeToString(tokenBytes));
+	    		String message = String.format("userId=%s\ntoken=%s", userId, Base64.getEncoder().encodeToString(tokenBytes));
 	    		
 	    		sendMessage(userId , message);
 	    		
