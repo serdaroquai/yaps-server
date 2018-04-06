@@ -8,6 +8,8 @@ import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandler;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 @Component
 public class MyStompSessionHandler implements StompSessionHandler{
 
@@ -21,14 +23,14 @@ public class MyStompSessionHandler implements StompSessionHandler{
 	
 	@Override
 	public void handleTransportError(StompSession session, Throwable exception) {
-		logger.info("!!Transport error");
+		logger.info("!!Transport error" + exception.getMessage(), exception);
 		
 	}
 	
 	@Override
 	public void handleException(StompSession session, StompCommand command, StompHeaders headers, byte[] payload,
 			Throwable exception) {
-		logger.error(exception.getMessage(), exception);
+		logger.error("!!handeException " + exception.getMessage(), exception);
 		
 	}
 	
@@ -40,7 +42,7 @@ public class MyStompSessionHandler implements StompSessionHandler{
 	
 	@Override
 	public java.lang.reflect.Type getPayloadType(StompHeaders headers) {
-		return ClientUpdate.class;
+		return JsonNode.class;
 	}
 	
 }

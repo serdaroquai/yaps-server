@@ -3,6 +3,18 @@ package org.serdaroquai.me.misc;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
+import java.util.Base64;
 
 import org.apache.commons.lang3.StringUtils;
 import org.serdaroquai.me.Config.StratumConnection;
@@ -55,6 +67,84 @@ public class Util {
 	
 	public static boolean isEmpty(String string) {
 		return StringUtils.isEmpty(string);
+	}
+	
+	public static byte[] applyDSASig(PrivateKey privateKey, String input) {
+		Signature dsa;
+		byte[] output = new byte[0];
+		try {
+			dsa = Signature.getInstance("DSA", "BC");
+			dsa.initSign(privateKey);
+			byte[] strByte = input.getBytes();
+			dsa.update(strByte);
+			byte[] realSig = dsa.sign();
+			output = realSig;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		return output;
+	}
+
+	public static boolean verifyDSASig(PublicKey publicKey, String data, byte[] signature) {
+		try {
+			Signature dsaVerify = Signature.getInstance("DSA", "BC");
+			dsaVerify.initVerify(publicKey);
+			dsaVerify.update(data.getBytes());
+			return dsaVerify.verify(signature);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static KeyPair generateKeyPair() {
+		try {
+			KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DSA", "BC");
+			SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+
+			// Initialize the key generator and generate a KeyPair
+			keyGen.initialize(1024, random);
+			KeyPair keyPair = keyGen.generateKeyPair();
+
+			return keyPair;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	public static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
+	    byte[] clear = Base64.getDecoder().decode(key64);
+	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
+	    KeyFactory fact = KeyFactory.getInstance("DSA");
+	    PrivateKey priv = fact.generatePrivate(keySpec);
+	    Arrays.fill(clear, (byte) 0);
+	    return priv;
+	}
+
+
+	public static PublicKey loadPublicKey(String stored) throws GeneralSecurityException {
+	    byte[] data = Base64.getDecoder().decode(stored);
+	    X509EncodedKeySpec spec = new X509EncodedKeySpec(data);
+	    KeyFactory fact = KeyFactory.getInstance("DSA");
+	    return fact.generatePublic(spec);
+	}
+
+	public static String savePrivateKey(PrivateKey priv) throws GeneralSecurityException {
+	    KeyFactory fact = KeyFactory.getInstance("DSA");
+	    PKCS8EncodedKeySpec spec = fact.getKeySpec(priv,
+	            PKCS8EncodedKeySpec.class);
+	    byte[] packed = spec.getEncoded();
+	    String key64 = Base64.getEncoder().encodeToString(packed);
+
+	    Arrays.fill(packed, (byte) 0);
+	    return key64;
+	}
+
+
+	public static String savePublicKey(PublicKey publ) throws GeneralSecurityException {
+	    KeyFactory fact = KeyFactory.getInstance("DSA");
+	    X509EncodedKeySpec spec = fact.getKeySpec(publ,
+	            X509EncodedKeySpec.class);
+	    return Base64.getEncoder().encodeToString(spec.getEncoded());
 	}
 	
 }

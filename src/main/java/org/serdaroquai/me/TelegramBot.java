@@ -1,5 +1,10 @@
 package org.serdaroquai.me;
 
+import static org.serdaroquai.me.misc.Util.*;
+
+import java.security.PrivateKey;
+import java.util.Base64;
+
 import javax.annotation.PreDestroy;
 
 import org.serdaroquai.me.components.EstimationManager;
@@ -26,6 +31,7 @@ public class TelegramBot extends TelegramLongPollingBot{
 	@Autowired ApplicationController controller;
 	@Autowired EstimationManager estimationManager;
 	@Autowired NotificationsManager notificationsManager;
+	@Autowired PrivateKey privateKey;
 	
 	public TelegramBot(String telegramToken, String botname, String chatId, boolean enabled) {
 		super();
@@ -60,19 +66,13 @@ public class TelegramBot extends TelegramLongPollingBot{
 		}
 	}
 	
-	private String tokenToChatId(String token) {
-		// TODO
-		return token;
-	}
-		
-	
-	public Message sendMessage(String token, String messageText) {
+	public Message sendMessage(String userId, String messageText) {
 
 		try {
 			logger.info("Sending:" + messageText);
 
 			SendMessage message = new SendMessage()
-					.setChatId(tokenToChatId(token))
+					.setChatId(userId)
 					.setText(messageText);
 			
 			return execute(message);
@@ -85,6 +85,9 @@ public class TelegramBot extends TelegramLongPollingBot{
 	@Override
 	public void onUpdateReceived(Update update) {
 		
+		if (isBot(update))
+			return;
+		
 		// We check if the update has a message and the message has text
 	    if (update.hasMessage() && update.getMessage().hasText()) {
 	    	// log message and chat id
@@ -94,8 +97,14 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    	String command = raw.split(" ")[0];
 	    	
 	    	if ("/subscribe".equals(command)) {
-	    		String userId = Integer.toString(update.getMessage().getFrom().getId()); 
-	    		sendMessage(userId , userId);
+	    		
+	    		String userId = getUserId(update); 
+	    		byte[] tokenBytes = applyDSASig(privateKey, userId);
+	    		
+	    		String message = String.format("userId=%s\ntoken=½s", userId, Base64.getEncoder().encodeToString(tokenBytes));
+	    		
+	    		sendMessage(userId , message);
+	    		
 	        } else if ("/unsubscribe".equals(command)) {
 	        	String text="Usage: /unsubscribe <id>";
 	        	String userId = Integer.toString(update.getMessage().getFrom().getId());
@@ -109,9 +118,15 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    		sendMessage(userId, text);
 	        }
 	    }
-		
 	}
 	
+	private String getUserId(Update update) {
+		return Integer.toString(update.getMessage().getFrom().getId());
+	}
+	
+	private boolean isBot(Update update) {
+		return update.getMessage().getFrom().getBot();
+	}
 	@Override
 	public String getBotUsername() {
 		return botname;

@@ -1,21 +1,18 @@
 package org.serdaroquai.me.misc;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-@SuppressWarnings("serial")
-public class ClientUpdate implements Serializable{
+public class ClientUpdate {
 
-	public static enum Type {
-		test,
+	/*
+	 	test,
 		estimationsUpdate,
 		minerUpdate,
 		estimationLabelsUpdate,
 		poolUpdate,
-	}
-	
-	private Type type;
+	 */
+	private String type;
 	private Map<String,Object> payload = new HashMap<String,Object>();
 	
 	public ClientUpdate() {}
@@ -33,16 +30,16 @@ public class ClientUpdate implements Serializable{
 		return payload.get(key);
 	}
 	
-	public Type getType() {
+	public String getType() {
 		return type;
 	}
 	
 	public static class Of {
 		
-		Type type;
+		String type;
 		Map<String,Object> payload = new HashMap<String,Object>();
 		
-		public Of(Type type) {
+		public Of(String type) {
 			this.type = type;
 		}
 		
@@ -58,9 +55,7 @@ public class ClientUpdate implements Serializable{
 
 	@Override
 	public String toString() {
-		return "ClientUpdate ["+ type + ", " + payload + "]";
+		return "ClientUpdateV2 ["+ type + ", " + payload + "]";
 	}
-	
-	
 	
 }
