@@ -34,18 +34,17 @@ public class ApplicationController {
 	@MessageMapping("/message")
 	public void accept(Message<JsonNode> message, Principal user) throws Exception {
 		
-		JsonNode jsonNode = message.getPayload();
-		String command = jsonNode.get("command").textValue();
+		logger.info(String.format("%s sent: %s",user, message.getPayload()));
+		
+		String command = message.getPayload().get("command").textValue();
+		JsonNode payload = message.getPayload().get("payload");
 		
 		switch (command) {
 		case "alive":
-			
-			logger.info(String.format("User %s sent: %s",user.getName(), jsonNode.toString()));
-			notificationsManager.registerAlive(user.getName(),jsonNode.get("payload").get("id").textValue());
-			
+			//"{"command":"alive","payload":"flagship"}
+			notificationsManager.registerAlive(user.getName(),payload.textValue());
 			break;
 		default:
-			logger.info(String.format("User %s sent: %s",user.getName(), jsonNode.toString()));
 		}
 	}
 

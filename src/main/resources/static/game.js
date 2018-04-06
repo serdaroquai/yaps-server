@@ -346,16 +346,18 @@ const chartDifficulty = makeDifficultyChart(document.getElementById("difficultyC
 
 // connect to server
 const sendToServer = ((endpoint, subscribeAdress, publishAddress, connectCallback, messageCallback) => {
-	
+	/*
 	const stompClient = Stomp.over(new SockJS(endpoint));
 	
 	stompClient.connect({}, (frame) => {
 		stompClient.subscribe(subscribeAdress, messageCallback);
 		connectCallback();
 	});
-	
+	*/
 	return (message) => {
+		/*
 		stompClient.send(publishAddress, {}, JSON.stringify(message));
+		*/
 	}
 	
 })('/pokerNight',
