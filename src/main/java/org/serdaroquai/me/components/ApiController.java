@@ -37,12 +37,12 @@ public class ApiController {
 	
 	@RequestMapping(value ="/getEstimations")
 	public Map<Algorithm, BigDecimal> getEstimations() {
-		return estimationManager.getLatestEstimations();
+		return estimationManager.getRevenues();
 	}
 	
 	@RequestMapping(value ="/getNormalizedEstimations")
 	public Map<Algorithm, BigDecimal> getNormalizedEstimations() {
-		return estimationManager.getLatestNormalizedEstimations();
+		return estimationManager.getNormalizedRevenues();
 	}
 	
 	@RequestMapping(value ="/getCoinConfig")
@@ -62,7 +62,7 @@ public class ApiController {
 	
 	@RequestMapping(value ="/status", method=RequestMethod.POST)
     public Map<Algorithm, BigDecimal> status() {
-        return estimationManager.getLatestNormalizedEstimations();
+        return estimationManager.getNormalizedRevenues();
     }
 	
 	

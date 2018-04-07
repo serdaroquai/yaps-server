@@ -66,7 +66,7 @@ public class ApplicationController {
 		case "/topic/estimations":
 			
 			Of builder = new ClientUpdate.Of("estimationsUpdate");
-			estimationManager.getLatestEstimations().forEach((key,value) -> builder.with(key.toString(), value));
+			estimationManager.getEstimationsMap().forEach((key,value) -> builder.with(key.toString(), value));
 			
 			template.convertAndSendToUser(
 					event.getUser().getName(), 

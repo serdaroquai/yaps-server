@@ -102,9 +102,13 @@ public class EstimationManager {
 		}
 	}
 	
-	public Map<Algorithm,BigDecimal> getLatestEstimations() {
+	public Map<Algorithm,BigDecimal> getRevenues() {
 		return latestEstimations.entrySet().stream()
 			.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().getBtcRevenue()));
+	}
+	
+	public Map<Algorithm,Estimation> getEstimationsMap() {
+		return new ConcurrentHashMap<Algorithm,Estimation>(latestEstimations);
 	}
 	
 	@EventListener
@@ -147,9 +151,9 @@ public class EstimationManager {
 		return Collections.unmodifiableMap(poolStatus);
 	}
 
-	public Map<Algorithm, BigDecimal> getLatestNormalizedEstimations() {
+	public Map<Algorithm, BigDecimal> getNormalizedRevenues() {
 		
-		return getLatestEstimations().entrySet().stream()
+		return getRevenues().entrySet().stream()
 			.filter(e -> config.getHashrateMap().containsKey(e.getKey()))
 			.collect(Collectors.toMap(
 					e -> e.getKey(), 
