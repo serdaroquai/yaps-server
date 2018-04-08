@@ -68,6 +68,7 @@ public class ApplicationConfig implements AsyncConfigurer{
 	public Executor getAsyncExecutor() {
 		SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
 		taskExecutor.setDaemon(true);
+		taskExecutor.setThreadNamePrefix("asnycExec");
 		return taskExecutor;
 	}
 	
@@ -75,6 +76,7 @@ public class ApplicationConfig implements AsyncConfigurer{
 	@Primary
 	public Executor getExecutor() {
 		SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
+		taskExecutor.setThreadNamePrefix("primeExec");
 		return taskExecutor;
 	}
     
@@ -91,7 +93,6 @@ public class ApplicationConfig implements AsyncConfigurer{
 
 	}
 	
-	//jackson json object mapper for manual mapping
 	@Bean
 	public ObjectMapper objectMapper() {
 		return new ObjectMapper();
@@ -103,9 +104,9 @@ public class ApplicationConfig implements AsyncConfigurer{
 	    if (!"".equals(ip) && !"".equals(port)) {
 	    	Proxy proxy= new Proxy(Type.HTTP, new InetSocketAddress(ip, Integer.valueOf(port)));
 	    	requestFactory.setProxy(proxy);
-	    	requestFactory.setConnectTimeout(2000);
-	    	requestFactory.setReadTimeout(2000);
 	    }
+	    requestFactory.setConnectTimeout(5000);
+	    requestFactory.setReadTimeout(5000);
 	    return new RestTemplate(requestFactory);
 	}
 }

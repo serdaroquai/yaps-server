@@ -16,6 +16,7 @@ import org.serdaroquai.me.entity.Difficulty;
 import org.serdaroquai.me.entity.Estimation;
 import org.serdaroquai.me.event.DifficultyUpdateEvent;
 import org.serdaroquai.me.event.EstimationUpdateEvent;
+import org.serdaroquai.me.event.MissingCoinDataEvent;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.Pair;
@@ -98,7 +99,7 @@ public class EstimationManager {
 			applicationEventPublisher.publishEvent(new EstimationUpdateEvent(this, estimation));
 			
 		} else {
-			logger.warn(String.format("Missing data for %s-%s %s", coin.getSymbol(), difficulty.getAlgo(), coin));
+			applicationEventPublisher.publishEvent(new MissingCoinDataEvent(this, coin, difficulty.getAlgo()));
 		}
 	}
 	

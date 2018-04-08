@@ -9,7 +9,6 @@ import org.serdaroquai.me.CoinConfig.Coin;
 import org.serdaroquai.me.TelegramBot;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.ExchangeRate;
-import org.serdaroquai.me.misc.MyStompSessionHandler;
 import org.serdaroquai.me.service.RestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +31,6 @@ public class ApiController {
 	@Autowired CoinConfig coinConfig;
 	@Autowired TelegramBot telegramBot;
 	@Autowired WebSocketStompClient stompClient; 
-	@Autowired MyStompSessionHandler handler;
 	
 	
 	@RequestMapping(value ="/getEstimations")

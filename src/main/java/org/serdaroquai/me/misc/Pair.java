@@ -20,7 +20,7 @@ public class Pair<T, K> {
 	
 	@Override
 	public String toString() {
-		return String.format("%s[%s,%s]", this.getClass(), getFirst(), getSecond());
+		return String.format("[%s,%s]", getFirst(), getSecond());
 	}
 
 	@Override

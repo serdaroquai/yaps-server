@@ -1,17 +1,25 @@
 package org.serdaroquai.me;
 
-import static org.serdaroquai.me.misc.Util.*;
+import static org.serdaroquai.me.misc.Util.applyDSASig;
 
 import java.security.PrivateKey;
+import java.time.LocalDateTime;
 import java.util.Base64;
 
 import javax.annotation.PreDestroy;
 
 import org.serdaroquai.me.components.EstimationManager;
 import org.serdaroquai.me.components.NotificationsManager;
+import org.serdaroquai.me.event.SendTelegramMessageEvent;
+import org.serdaroquai.me.event.StatusEvent;
+import org.serdaroquai.me.event.SubscribeEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.telegram.telegrambots.TelegramBotsApi;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
@@ -28,10 +36,12 @@ public class TelegramBot extends TelegramLongPollingBot{
 	private String botname;
 	private boolean enabled;
 	
+	@Autowired ApplicationEventPublisher applicationEventPublisher;
 	@Autowired ApplicationController controller;
 	@Autowired EstimationManager estimationManager;
 	@Autowired NotificationsManager notificationsManager;
 	@Autowired PrivateKey privateKey;
+	@Value("${telegram.adminId}") String adminTelegramId;
 	
 	public TelegramBot(String telegramToken, String botname, String chatId, boolean enabled) {
 		super();
@@ -59,14 +69,15 @@ public class TelegramBot extends TelegramLongPollingBot{
 	}
 	
 	@PreDestroy
-	private void destroy() {
+	private void destroy() {		
 		if (botSession != null || botSession.isRunning()) {
 			logger.info("Stopping telegramBot");
+			sendMessage(adminTelegramId, String.format("Yaps-server shutting down at %s", LocalDateTime.now()));
 			botSession.stop();			
 		}
 	}
 	
-	public Message sendMessage(String userId, String messageText) {
+	private Message sendMessage(String userId, String messageText) {
 
 		try {
 			logger.info("Sending:" + messageText);
@@ -100,28 +111,29 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    		
 	    		String userId = getUserId(update); 
 	    		byte[] tokenBytes = applyDSASig(privateKey, userId);
+	    		String token = Base64.getEncoder().encodeToString(tokenBytes);
+	    		String message = String.format("userId=%s\ntoken=%s", userId, token);
 	    		
-	    		String message = String.format("userId=%s\ntoken=%s", userId, Base64.getEncoder().encodeToString(tokenBytes));
-	    		
-	    		sendMessage(userId , message);
-	    		
-	        } else if ("/unsubscribe".equals(command)) {
-	        	String text="Usage: /unsubscribe <id>";
-	        	String userId = Integer.toString(update.getMessage().getFrom().getId());
-	        	
-	        	String[] split = raw.split(" ");
-	        	if (split.length == 2) {
-	        		notificationsManager.unsubscribe(userId, split[1]);
-	        		text = String.format("Unsubscribing miner with id. %s", split[1]);
-	        	}
-	    		
-	    		sendMessage(userId, text);
-	        }
+	    		applicationEventPublisher.publishEvent(new SubscribeEvent(this, userId));
+	    		applicationEventPublisher.publishEvent(new SendTelegramMessageEvent(this, userId, message));
+	        } 
+	    	
+	    	// admin updates
+	    	if ( isFromAdmin(update)) {
+	    		if ("/status".equals(command)) {
+	    			applicationEventPublisher.publishEvent(new StatusEvent(this, null));
+	    		}
+	    	}
 	    }
+	    
 	}
 	
 	private String getUserId(Update update) {
 		return Integer.toString(update.getMessage().getFrom().getId());
+	}
+	
+	private boolean isFromAdmin(Update update) {
+		return adminTelegramId.equals(getUserId(update));
 	}
 	
 	private boolean isBot(Update update) {
@@ -136,5 +148,20 @@ public class TelegramBot extends TelegramLongPollingBot{
 	public String getBotToken() {
 		return telegramToken;
 	}
-
+	
+	@EventListener
+	public void handleSendTelegramMessageEvent(SendTelegramMessageEvent event) {
+		sendMessage(event.getPayload().getFirst(), event.getPayload().getSecond());
+	}
+	
+	@EventListener
+	public void handleSubscribeEvent(SubscribeEvent event) {
+		sendMessage(adminTelegramId, String.format("%s has subscribed", event.getPayload()));
+	}
+	
+	@EventListener
+	public void handleApplicationStartEvent(ApplicationStartedEvent event) {
+		sendMessage(adminTelegramId, String.format("Yaps-server started at %s", LocalDateTime.now()));
+	}
+	
 }

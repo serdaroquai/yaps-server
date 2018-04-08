@@ -3,14 +3,15 @@ package org.serdaroquai.me;
 import java.security.Principal;
 
 import org.serdaroquai.me.components.EstimationManager;
-import org.serdaroquai.me.components.NotificationsManager;
 import org.serdaroquai.me.entity.Estimation;
 import org.serdaroquai.me.event.EstimationUpdateEvent;
+import org.serdaroquai.me.event.RigAliveEvent;
 import org.serdaroquai.me.misc.ClientUpdate;
 import org.serdaroquai.me.misc.ClientUpdate.Of;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -28,8 +29,8 @@ public class ApplicationController {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
 	@Autowired SimpMessagingTemplate template;
-	@Autowired NotificationsManager notificationsManager;
 	@Autowired EstimationManager estimationManager;
+	@Autowired ApplicationEventPublisher applicationEventPublisher;
 
 	@MessageMapping("/message")
 	public void accept(Message<JsonNode> message, Principal user) throws Exception {
@@ -42,7 +43,7 @@ public class ApplicationController {
 		switch (command) {
 		case "alive":
 			//"{"command":"alive","payload":"flagship"}
-			notificationsManager.registerAlive(user.getName(),payload.textValue());
+			applicationEventPublisher.publishEvent(new RigAliveEvent(this, user.getName(), payload.textValue()));
 			break;
 		default:
 		}
@@ -54,7 +55,7 @@ public class ApplicationController {
 
 	@EventListener
 	public void handleWebSocketConnectListener(SessionConnectedEvent event) {
-		logger.info(event.toString());
+		logger.info(String.format("%s connected", event.getUser()));
 	}
 	
 	
@@ -81,7 +82,7 @@ public class ApplicationController {
 
 	@EventListener
 	public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
-		logger.info(event.toString());
+		logger.info(String.format("%s disconnected. session id %s", event.getUser(), event.getSessionId()));
 	}
 
 	@EventListener
