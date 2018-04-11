@@ -21,16 +21,13 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptorAdapter;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketHandler;
-import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
-import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 import org.springframework.web.socket.handler.WebSocketHandlerDecoratorFactory;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
@@ -42,6 +39,7 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 @EnableWebSocketMessageBroker
 public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
 
+	@SuppressWarnings("unused")
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Bean
