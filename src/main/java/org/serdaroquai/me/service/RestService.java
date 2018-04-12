@@ -49,6 +49,93 @@ public class RestService {
 	@Autowired RestTemplate restTemplate;
 	@Autowired ObjectMapper objectMapper;
 	
+	
+	//https://graviex.net:443//api/v2/markets.json
+	@Async
+	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
+		
+		String urlString = "https://graviex.net:443/api/v2/markets.json";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		try {
+			
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, String> idSymbolMap = StreamSupport.stream(resultArray.spliterator(), true)
+				.filter(node -> node.get("name").textValue().contains("/BTC"))
+				.collect(Collectors.toMap(
+						node -> node.get("id").textValue(), 
+						node -> node.get("name").textValue().replaceFirst("/BTC", "")));
+			
+			
+			builder = UriComponentsBuilder.fromHttpUrl("https://graviex.net:443/api/v2/tickers.json");
+			response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			Map<String,ExchangeRate> symbolPriceMap = new HashMap<>();
+			JsonNode result = objectMapper.readTree(response.getBody());
+			
+			idSymbolMap.entrySet().parallelStream()
+				.forEach(entry -> {
+					String symbol = entry.getValue();
+					JsonNode ticker = result.get(entry.getKey()).get("ticker");
+					symbolPriceMap.put(symbol, new ExchangeRate(ticker.get("last").decimalValue(), ticker.get("volbtc").decimalValue()));
+				});
+			
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(symbolPriceMap);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+	
+	// https://api.coinmarketcap.com/v1/ticker/?limit=0
+	@Async
+	public Future<Map<String,ExchangeRate>> getCoinMarketCapTicker() {
+		
+		String urlString = "https://api.coinmarketcap.com/v1/ticker/?limit=0";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			//coin market cap has no volume since its no exchange
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.collect(Collectors.toMap(
+							node -> node.get("symbol").textValue(), 
+							node -> {
+			 					BigDecimal price = node.get("price_btc").decimalValue();
+			 					return new ExchangeRate(price, BigDecimal.ZERO); 
+			 				}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+	
 	//https://www.southxchange.com/api/prices
 	@Async
 	public Future<Map<String,ExchangeRate>> getSouthExchangeMarkets() {
