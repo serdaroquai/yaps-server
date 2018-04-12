@@ -54,14 +54,6 @@ public class RestService {
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
 	
-	@PostConstruct
-	public void init() {
-		Future<Map<String, ExchangeRate>> coinMarketCapTicker = getCoinMarketCapTicker();
-		Future<Map<String, ExchangeRate>> graviexMarkets = getGraviexMarkets();
-		logger.info("done");
-	}
-	
-	
 	//https://graviex.net:443//api/v2/markets.json
 	@Async
 	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
