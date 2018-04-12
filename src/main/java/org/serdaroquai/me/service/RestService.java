@@ -11,7 +11,11 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import javax.annotation.PostConstruct;
+
 import org.serdaroquai.me.Algo;
+import org.serdaroquai.me.CoinConfig;
+import org.serdaroquai.me.CoinConfig.Coin;
 import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.entity.WhattomineBrief;
 import org.serdaroquai.me.entity.WhattomineBriefEnvelope;
@@ -48,6 +52,14 @@ public class RestService {
 	@Autowired ApplicationEventPublisher applicationEventPublisher;
 	@Autowired RestTemplate restTemplate;
 	@Autowired ObjectMapper objectMapper;
+	@Autowired CoinConfig coinConfig;
+	
+	@PostConstruct
+	public void init() {
+		Future<Map<String, ExchangeRate>> coinMarketCapTicker = getCoinMarketCapTicker();
+		Future<Map<String, ExchangeRate>> graviexMarkets = getGraviexMarkets();
+		logger.info("done");
+	}
 	
 	
 	//https://graviex.net:443//api/v2/markets.json
@@ -113,20 +125,28 @@ public class RestService {
 			
 			ResponseEntity<String> response = restTemplate.exchange(
 					builder.build().encode().toUri(), 
-					HttpMethod.GET, 
+					HttpMethod.GET,
 					null, 
 					String.class);
 			
 			JsonNode resultArray = objectMapper.readTree(response.getBody());
 			
+			// TODO this shouldn't be on a need to config basis, but for now lets keep it so
+			
+			// Make a list of coins that we are interested in from coinMarketCap
+			Map<String, Coin> coinsOfInterest = coinConfig.getCoin().values().parallelStream()
+					.filter(coin -> coin.getIdMap().containsKey("coinMarketCap"))
+					.collect(Collectors.toMap(
+							coin -> coin.getIdMap().get("coinMarketCap"), 
+							coin -> coin));
+			
 			//coin market cap has no volume since its no exchange
 			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> coinsOfInterest.containsKey(node.get("id").textValue()))
 					.collect(Collectors.toMap(
-							node -> node.get("symbol").textValue(), 
-							node -> {
-			 					BigDecimal price = node.get("price_btc").decimalValue();
-			 					return new ExchangeRate(price, BigDecimal.ZERO); 
-			 				}));
+							node -> node.get("symbol").textValue(),
+							node -> new ExchangeRate(new BigDecimal(node.get("price_btc").textValue()), BigDecimal.ZERO)));
+				
 			
 			return new AsyncResult<Map<String,ExchangeRate>>(result);
 			
@@ -245,9 +265,7 @@ public class RestService {
 			for (final JsonNode node : result) {
 				String symbol = idSymbolMap.get(node.get("MarketID").textValue());
 				if (!Util.isEmpty(symbol)) {
-					symbolPrice.put(symbol, new ExchangeRate(
-							new BigDecimal(node.get("LastPrice").textValue()),
-							new BigDecimal(node.get("BTCVolume").textValue())));					
+					symbolPrice.put(symbol, new ExchangeRate(new BigDecimal(node.get("LastPrice").textValue()), new BigDecimal(node.get("BTCVolume").textValue())));					
 				}
 		    }
 			

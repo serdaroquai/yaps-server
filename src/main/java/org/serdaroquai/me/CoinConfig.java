@@ -41,7 +41,8 @@ public class CoinConfig {
 	public static class Coin {
 		String symbol;
 		BigDecimal blockTime;
-		Map<Integer,BigDecimal> blockReward;
+		Map<Integer,BigDecimal> blockReward = new HashMap<>();
+		Map<String,String> idMap = new HashMap<>();
 		BigDecimal exchangeRate;
 		
 		public String getSymbol() {
@@ -61,6 +62,12 @@ public class CoinConfig {
 		}
 		public void setBlockReward(Map<Integer, BigDecimal> blockReward) {
 			this.blockReward = blockReward;
+		}
+		public Map<String, String> getIdMap() {
+			return idMap;
+		}
+		public void setIdMap(Map<String, String> idMap) {
+			this.idMap = idMap;
 		}
 
 		
