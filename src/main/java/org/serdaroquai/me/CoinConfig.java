@@ -11,6 +11,8 @@ import org.serdaroquai.me.misc.Util;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Configuration
 @ConfigurationProperties
 public class CoinConfig {
@@ -41,7 +43,8 @@ public class CoinConfig {
 	public static class Coin {
 		String symbol;
 		BigDecimal blockTime;
-		Map<Integer,BigDecimal> blockReward;
+		Map<Integer,BigDecimal> blockReward = new HashMap<>();
+		Map<String,String> idMap = new HashMap<>();
 		BigDecimal exchangeRate;
 		
 		public String getSymbol() {
@@ -61,6 +64,14 @@ public class CoinConfig {
 		}
 		public void setBlockReward(Map<Integer, BigDecimal> blockReward) {
 			this.blockReward = blockReward;
+		}
+		
+		@JsonIgnore
+		public Map<String, String> getIdMap() {
+			return idMap;
+		}
+		public void setIdMap(Map<String, String> idMap) {
+			this.idMap = idMap;
 		}
 
 		
