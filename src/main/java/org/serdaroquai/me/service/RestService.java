@@ -1,5 +1,7 @@
 package org.serdaroquai.me.service;
 
+import static org.serdaroquai.me.misc.Util.isEmpty;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -22,7 +24,6 @@ import org.serdaroquai.me.entity.WhattomineBriefEnvelope;
 import org.serdaroquai.me.entity.WhattomineDetail;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.ExchangeRate;
-import org.serdaroquai.me.misc.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,43 @@ public class RestService {
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
 	
+	//https://api.crypto-bridge.org/api/v1/ticker
+	@Async
+	public Future<Map<String,ExchangeRate>> getCryptoBridgeTicker() {
+		
+		String urlString = "https://api.crypto-bridge.org/api/v1/ticker";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> node.get("id").textValue().contains("_BTC"))
+					.collect(Collectors.toMap(
+							node -> node.get("id").textValue().replaceFirst("_BTC", ""), 
+							node -> {
+								BigDecimal price = new BigDecimal(node.get("last").textValue());
+								BigDecimal btcVolume = new BigDecimal(node.get("volume").textValue()).multiply(price);
+								return new ExchangeRate(price, btcVolume);
+							}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+		
+		
 	//https://graviex.net:443//api/v2/markets.json
 	@Async
 	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
@@ -123,8 +161,6 @@ public class RestService {
 			
 			JsonNode resultArray = objectMapper.readTree(response.getBody());
 			
-			// TODO this shouldn't be on a need to config basis, but for now lets keep it so
-			
 			// Make a list of coins that we are interested in from coinMarketCap
 			Map<String, Coin> coinsOfInterest = coinConfig.getCoin().values().parallelStream()
 					.filter(coin -> coin.getIdMap().containsKey("coinMarketCap"))
@@ -132,13 +168,32 @@ public class RestService {
 							coin -> coin.getIdMap().get("coinMarketCap"), 
 							coin -> coin));
 			
-			//coin market cap has no volume since its no exchange
+			// get the ones we are particularly interested in
 			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
 					.filter(node -> coinsOfInterest.containsKey(node.get("id").textValue()))
 					.collect(Collectors.toMap(
 							node -> node.get("symbol").textValue(),
 							node -> new ExchangeRate(new BigDecimal(node.get("price_btc").textValue()), BigDecimal.ZERO)));
-				
+			
+			// detect duplicate symbols
+			Map<String, Long> duplicateMap = StreamSupport.stream(resultArray.spliterator(), true)
+				.collect(Collectors.groupingBy(
+						node -> node.get("symbol").textValue(), 
+						Collectors.counting()))
+				.entrySet().parallelStream()
+					.filter(entry -> entry.getValue() > 1)
+					.collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue));
+							
+			//coin market cap has no volume since its no exchange
+			Map<String, ExchangeRate> restOfCoins = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> !duplicateMap.containsKey(node.get("symbol").textValue()))
+					.filter(node -> !isEmpty(node.get("price_btc").textValue()))
+					.collect(Collectors.toMap(
+							node -> node.get("symbol").textValue(),
+							node -> new ExchangeRate(new BigDecimal(node.get("price_btc").textValue()), BigDecimal.ZERO)));
+			
+//			//merge two maps
+			result.putAll(restOfCoins);
 			
 			return new AsyncResult<Map<String,ExchangeRate>>(result);
 			
@@ -256,7 +311,7 @@ public class RestService {
 			
 			for (final JsonNode node : result) {
 				String symbol = idSymbolMap.get(node.get("MarketID").textValue());
-				if (!Util.isEmpty(symbol)) {
+				if (!isEmpty(symbol)) {
 					symbolPrice.put(symbol, new ExchangeRate(new BigDecimal(node.get("LastPrice").textValue()), new BigDecimal(node.get("BTCVolume").textValue())));					
 				}
 		    }

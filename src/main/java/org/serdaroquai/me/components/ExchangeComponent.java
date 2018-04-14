@@ -46,6 +46,7 @@ public class ExchangeComponent {
 						futures.add(restService.getCoinExchangeIoMarkets());
 						futures.add(restService.getCryptopiaMarkets());
 						futures.add(restService.getCoinMarketCapTicker());
+						futures.add(restService.getCryptoBridgeTicker());
 						//TODO graviex ticker
 						
 						for (Future<Map<String,ExchangeRate>> future : futures) {
