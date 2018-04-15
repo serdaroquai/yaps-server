@@ -99,14 +99,18 @@ public class ApplicationConfig implements AsyncConfigurer{
 	}
 	
 	@Bean
-	public RestTemplate restTemplate(@Value("${proxy.ip:}") String ip, @Value("${proxy.port:}")String port) {
+	public RestTemplate restTemplate(
+			@Value("${proxy.ip:}") String ip, 
+			@Value("${proxy.port:}") String port,
+			@Value("${restService.connectTimeout:15000}") int connectTimeout,
+			@Value("${restService.readTimeout:15000}") int readTimeout) {
 	    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
 	    if (!"".equals(ip) && !"".equals(port)) {
 	    	Proxy proxy= new Proxy(Type.HTTP, new InetSocketAddress(ip, Integer.valueOf(port)));
 	    	requestFactory.setProxy(proxy);
 	    }
-	    requestFactory.setConnectTimeout(5000);
-	    requestFactory.setReadTimeout(5000);
+	    requestFactory.setConnectTimeout(connectTimeout);
+	    requestFactory.setReadTimeout(readTimeout);
 	    return new RestTemplate(requestFactory);
 	}
 }
