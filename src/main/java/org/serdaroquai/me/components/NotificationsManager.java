@@ -9,9 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.serdaroquai.me.CoinConfig.Coin;
+import org.serdaroquai.me.event.AdminSaysEvent;
 import org.serdaroquai.me.event.MissingCoinDataEvent;
 import org.serdaroquai.me.event.RigAliveEvent;
 import org.serdaroquai.me.event.SendTelegramMessageEvent;
@@ -38,6 +41,13 @@ public class NotificationsManager {
 	// key: <userId,id> value: <instant>
 	Map<Pair<String,String>,Instant> lastAlive = new ConcurrentHashMap<>();
 	Set<Pair<Coin,Algorithm>> missingCoinData = new HashSet<>();
+
+	private final Function<Pair<String,String>, String> pairToUserId = (pair) -> pair.getFirst();
+	private final Function<String, Consumer<String>> sendMessage = 
+			(message) -> (userId) -> applicationEventPublisher.publishEvent(new SendTelegramMessageEvent(
+					this, 
+					userId, 
+					message)); 
 	
 	@Scheduled(fixedDelay=10000)
 	public void notifyMissing() {
@@ -104,7 +114,14 @@ public class NotificationsManager {
 		logger.warn(String.format("Missing data for %s-%s %s", pair.getFirst().getSymbol(), pair.getSecond(), pair.getFirst()));
 		
 		missingCoinData.add(pair);
-		
+	}
+	
+	@EventListener
+	public void handleEvent(AdminSaysEvent event) {
+		String message = event.getPayload();
+		lastAlive.keySet().parallelStream()
+			.map(pairToUserId)
+			.forEach(sendMessage.apply(message));
 	}
 	
 	

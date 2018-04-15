@@ -10,6 +10,7 @@ import javax.annotation.PreDestroy;
 
 import org.serdaroquai.me.components.EstimationManager;
 import org.serdaroquai.me.components.NotificationsManager;
+import org.serdaroquai.me.event.AdminSaysEvent;
 import org.serdaroquai.me.event.SendTelegramMessageEvent;
 import org.serdaroquai.me.event.StatusEvent;
 import org.serdaroquai.me.event.SubscribeEvent;
@@ -122,6 +123,9 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    	if ( isFromAdmin(update)) {
 	    		if ("/status".equals(command)) {
 	    			applicationEventPublisher.publishEvent(new StatusEvent(this, null));
+	    		} else if ("/say".equals(command)) {
+	    			String message = raw.substring(5);	    			
+	    			applicationEventPublisher.publishEvent(new AdminSaysEvent(this, message));
 	    		}
 	    	}
 	    }
