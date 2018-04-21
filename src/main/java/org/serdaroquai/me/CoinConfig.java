@@ -42,11 +42,18 @@ public class CoinConfig {
 	
 	public static class Coin {
 		String symbol;
+		String alternateSymbol;
 		BigDecimal blockTime;
 		Map<Integer,BigDecimal> blockReward = new HashMap<>();
 		Map<String,String> idMap = new HashMap<>();
 		BigDecimal exchangeRate;
 		
+		public String getAlternateSymbol() {
+			return alternateSymbol;
+		}
+		public void setAlternateSymbol(String alternateSymbol) {
+			this.alternateSymbol = alternateSymbol;
+		}
 		public String getSymbol() {
 			return symbol;
 		}

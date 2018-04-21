@@ -1,5 +1,7 @@
 package org.serdaroquai.me.components;
 
+import static org.serdaroquai.me.misc.Util.*;
+
 import java.math.BigDecimal;
 import java.util.LinkedList;
 import java.util.Map;
@@ -70,7 +72,15 @@ public class ExchangeComponent {
 	
 	public Optional<BigDecimal> getLastPrice(Coin coin) {
 		try {
-			return Optional.ofNullable(getExchangeRates().get(coin.getSymbol()).getPrice());
+			ExchangeRate exchangeRate = getExchangeRates().get(coin.getSymbol());
+			
+			// hotfix SONO <ALTCOM>
+			if (!isEmpty(coin.getAlternateSymbol())) {
+				exchangeRate = (exchangeRate == null) ? getExchangeRates().get(coin.getAlternateSymbol()) : exchangeRate;				
+			}
+			
+			return Optional.ofNullable(exchangeRate.getPrice());
+			
 		} catch (Exception e) {
 			return Optional.empty();
 		}
