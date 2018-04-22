@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -52,6 +53,62 @@ public class RestService {
 	@Autowired RestTemplate restTemplate;
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
+	
+	//https://yobit.net/api/3/ticker/{coin_btc}
+	@Async("restExecutor")
+	public Future<Map<String, ExchangeRate>> getYobitTicker() {
+		// for now we will only get coins with yobit in their idMaps
+		List<Coin> yobitCoins = coinConfig.getCoin().values().parallelStream()
+			.filter(coin -> !coin.getIdMap().isEmpty())
+			.filter(coin -> coin.getIdMap().get("yobit") != null)
+			.collect(Collectors.toList());
+		
+		if (yobitCoins.isEmpty()) {
+			return new AsyncResult<Map<String,ExchangeRate>>(Collections.emptyMap());
+		}
+		
+		String yobitString = yobitCoins.stream()
+				.map(coin -> coin.getIdMap().get("yobit"))
+				.collect(Collectors.joining("-"));
+		
+		String urlString = String.format("https://yobit.net/api/3/ticker/%s", yobitString);
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			// add header user agent for forbidden
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+			headers.add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36");
+			
+			HttpEntity<?> entity = new HttpEntity<>(headers);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					entity, 
+					String.class);
+			
+			JsonNode node = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = yobitCoins.parallelStream()
+				.collect(Collectors.toMap(
+						coin -> coin.getSymbol(), 
+						coin -> {
+							String yobitId = coin.getIdMap().get("yobit");
+							BigDecimal price = node.get(yobitId).get("last").decimalValue();
+							BigDecimal btcVolume = node.get(yobitId).get("vol").decimalValue();
+							return new ExchangeRate(price, btcVolume);
+						}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
 	
 	//https://api.crypto-bridge.org/api/v1/ticker
 	@Async("restExecutor")
@@ -437,5 +494,6 @@ public class RestService {
 		return map;
 
 	}
+
 	
 }

@@ -1,7 +1,5 @@
 package org.serdaroquai.me.components;
 
-import static org.serdaroquai.me.misc.Util.*;
-
 import java.math.BigDecimal;
 import java.util.LinkedList;
 import java.util.Map;
@@ -49,6 +47,7 @@ public class ExchangeComponent {
 						futures.add(restService.getCryptopiaMarkets());
 						futures.add(restService.getCoinMarketCapTicker());
 						futures.add(restService.getCryptoBridgeTicker());
+						futures.add(restService.getYobitTicker()); // only fetches coins with idMap.yobit=symbol_btc
 						//TODO graviex ticker
 						
 						for (Future<Map<String,ExchangeRate>> future : futures) {
@@ -73,12 +72,6 @@ public class ExchangeComponent {
 	public Optional<BigDecimal> getLastPrice(Coin coin) {
 		try {
 			ExchangeRate exchangeRate = getExchangeRates().get(coin.getSymbol());
-			
-			// hotfix SONO <ALTCOM>
-			if (!isEmpty(coin.getAlternateSymbol())) {
-				exchangeRate = (exchangeRate == null) ? getExchangeRates().get(coin.getAlternateSymbol()) : exchangeRate;				
-			}
-			
 			return Optional.ofNullable(exchangeRate.getPrice());
 			
 		} catch (Exception e) {
