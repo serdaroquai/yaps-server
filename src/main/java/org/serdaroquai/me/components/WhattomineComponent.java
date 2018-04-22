@@ -74,7 +74,6 @@ public class WhattomineComponent {
 			return Optional.of(Builder.of(() -> coinConfig.createOrGet(pair.getFirst()))
 				.with(Coin::setSymbol, pair.getFirst())
 				.with(Coin::setSingleBlockReward, optional.get().getBlockReward())
-				.with(Coin::setBlockTime, optional.get().getBlockTime())
 				.with(Coin::setExchangeRate, optional.get().getExchangeRate())
 				.build());
 		} else {

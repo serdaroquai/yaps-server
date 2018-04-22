@@ -33,6 +33,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class EstimationManager {
 
+	private final static BigDecimal ONE_DAY_IN_SECONDS = new BigDecimal(24*60*60);
+	private final static BigDecimal ONE_KILO_HASH = new BigDecimal(1000);
+	private final static BigDecimal DIFF_CONSTANT = new BigDecimal(Math.pow(2, 32));
+	
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired Config config;
@@ -69,18 +73,10 @@ public class EstimationManager {
 			return BigDecimal.ZERO;
 		}
 		
-		// total network hashrate
-		BigDecimal networkHashrate = difficulty.getDifficulty().multiply(new BigDecimal(Math.pow(2, 32))).divide(coin.getBlockTime(),0,RoundingMode.FLOOR);
+		BigDecimal blockReward = coin.getBlockRewardByHeight(difficulty.getBlockHeight()).multiply(coin.getExchangeRate());
 		
-		// how much BTC is produced per day with network hashrate 
-		BigDecimal networkBtcEarning = coin.getBlockRewardByHeight(difficulty.getBlockHeight())
-				.multiply(new BigDecimal(60*60*24))
-				.divide(coin.getBlockTime(), 5, RoundingMode.HALF_DOWN)
-				.multiply(coin.getExchangeRate());
-		
-		BigDecimal btcPerKhashPerDay = new BigDecimal(1000).multiply(networkBtcEarning).divide(networkHashrate,RoundingMode.HALF_DOWN);
-		
-		return btcPerKhashPerDay;
+		return ONE_DAY_IN_SECONDS.multiply(blockReward).multiply(ONE_KILO_HASH)
+				.divide(difficulty.getDifficulty().multiply(DIFF_CONSTANT),12,RoundingMode.HALF_DOWN);
 	}
 
 	@EventListener

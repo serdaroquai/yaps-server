@@ -13,8 +13,6 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import javax.annotation.PostConstruct;
-
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
 import org.serdaroquai.me.CoinConfig.Coin;
