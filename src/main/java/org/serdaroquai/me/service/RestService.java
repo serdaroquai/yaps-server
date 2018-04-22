@@ -54,7 +54,7 @@ public class RestService {
 	@Autowired CoinConfig coinConfig;
 	
 	//https://api.crypto-bridge.org/api/v1/ticker
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCryptoBridgeTicker() {
 		
 		String urlString = "https://api.crypto-bridge.org/api/v1/ticker";
@@ -91,7 +91,7 @@ public class RestService {
 		
 		
 	//https://graviex.net:443//api/v2/markets.json
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
 		
 		String urlString = "https://graviex.net:443/api/v2/markets.json";
@@ -142,7 +142,7 @@ public class RestService {
 	}
 	
 	// https://api.coinmarketcap.com/v1/ticker/?limit=0
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCoinMarketCapTicker() {
 		
 		String urlString = "https://api.coinmarketcap.com/v1/ticker/?limit=0";
@@ -202,7 +202,7 @@ public class RestService {
 	}
 	
 	//https://www.southxchange.com/api/prices
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getSouthExchangeMarkets() {
 		
 		String urlString = "https://www.southxchange.com/api/prices";
@@ -238,7 +238,7 @@ public class RestService {
 	}
 	
 	//https://www.cryptopia.co.nz/api/GetMarkets/BTC
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCryptopiaMarkets() {
 		
 		String urlString = "https://www.cryptopia.co.nz/api/GetMarkets/BTC";
@@ -272,7 +272,7 @@ public class RestService {
 		}
 	}
 	
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCoinExchangeIoMarkets() {
 		
 		String urlString = "https://www.coinexchange.io/api/v1/getmarkets";
@@ -381,7 +381,7 @@ public class RestService {
 		
 	}
 	
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,Algo>> getPoolStatus() throws JsonParseException, JsonMappingException, IOException {
 		
 		try {

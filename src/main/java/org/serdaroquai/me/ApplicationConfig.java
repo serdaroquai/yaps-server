@@ -21,11 +21,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.ApplicationEventMulticaster;
 import org.springframework.context.event.SimpleApplicationEventMulticaster;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.exceptions.TelegramApiRequestException;
@@ -66,18 +66,65 @@ public class ApplicationConfig implements AsyncConfigurer{
 	@Override
 	@Bean("asyncExecutor")
 	public Executor getAsyncExecutor() {
-		SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
-		taskExecutor.setDaemon(true);
-		taskExecutor.setThreadNamePrefix("asnycExec");
-		return taskExecutor;
+		
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		
+		//queue events if core threads are full 
+		executor.setCorePoolSize(Runtime.getRuntime().availableProcessors() * 2);
+		
+		executor.setDaemon(true);
+		executor.setThreadNamePrefix("event-");
+		executor.initialize();
+		return executor;
 	}
+	
+	@Bean("stratumService")
+	public Executor getStratumServiceAsyncExecutor(@Value("${numberOfStratumWorkers:32}") int numberOfStratumWorkers) {
+		
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		
+		// no queuing just spawn a new thread if high through put and get back to core pool size 
+		executor.setCorePoolSize(numberOfStratumWorkers);
+		executor.setMaxPoolSize(Integer.MAX_VALUE);
+		executor.setQueueCapacity(0);
+		
+		executor.setDaemon(true);
+		executor.setThreadNamePrefix("stratum-");
+		executor.initialize();
+		return executor;
+	}
+	
+	@Bean("restExecutor")
+	public Executor getRestServiceAsyncExecutor(@Value("${numberOfRestServiceWorkers:32}") int numberOfRestServiceWorkers) {
+		
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		
+		// no queuing just spawn a new thread if high through put and get back to core pool size 
+		executor.setCorePoolSize(numberOfRestServiceWorkers);
+		executor.setMaxPoolSize(Integer.MAX_VALUE);
+		executor.setQueueCapacity(0);
+		
+		executor.setDaemon(true);
+		executor.setThreadNamePrefix("rest-");
+		executor.initialize();
+		return executor;
+	}
+		
 	
 	@Bean
 	@Primary
-	public Executor getExecutor() {
-		SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
-		taskExecutor.setThreadNamePrefix("primeExec");
-		return taskExecutor;
+	public Executor getExecutor(@Value("${numberOfWebsocketConnections:200}") int numberOfWebsocketConnections) {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		
+		// no queuing just spawn a new thread if high through put and get back to core pool size 
+		executor.setCorePoolSize(numberOfWebsocketConnections);
+		executor.setMaxPoolSize(Integer.MAX_VALUE);
+		executor.setQueueCapacity(0);
+		
+		executor.setDaemon(true);
+		executor.setThreadNamePrefix("prime-");
+		executor.initialize();
+		return executor;
 	}
     
 	@Bean
