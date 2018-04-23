@@ -485,14 +485,13 @@ public class RestService {
 					String.class);
 			
 			map = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, PoolDetail>>(){});
+		
+			return map;
 			
 		} catch (Exception e) {
 			//TODO handle exceptions?
-			logger.error("Can not get pool details");
+			throw new RuntimeException(e);
 		}
-		
-		return map;
-
 	}
 
 	

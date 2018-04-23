@@ -55,7 +55,11 @@ public class StratumManager {
 	
 	@Scheduled(fixedDelay=30000)
 	public void getPoolDetails() {
-		poolDetails = restService.getPoolDetails();
+		try {
+			poolDetails = restService.getPoolDetails();			
+		} catch (Exception e) {
+			logger.error("Can not get pool details");
+		}
 	}	
 
 	public void handlePoolDetailEvent() {
