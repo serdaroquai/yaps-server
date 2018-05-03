@@ -2,6 +2,7 @@ package org.serdaroquai.me.components;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
@@ -54,8 +55,10 @@ public class ApiController {
 	}
 	
 	@RequestMapping(value ="/poolStatus", method=RequestMethod.POST)
-    public Map<Algorithm,Algo> poolStatus() {
-        return estimationManager.getPoolStatus();
+    public Map<String,Map<Algorithm,Algo>> poolStatus() {
+        return estimationManager.getPoolStatus().entrySet().parallelStream()
+        		.collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue()));
+        			
     }
 	
 	@RequestMapping(value ="/status", method=RequestMethod.POST)

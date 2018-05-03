@@ -50,7 +50,11 @@ public class ApplicationController {
 	}
 
 	public void dispatch(ClientUpdate update) {
-		template.convertAndSend("/topic/estimations", update);
+		dispatch(update, "/topic/estimations");
+	}
+	
+	public void dispatch(ClientUpdate update, String destination) {
+		template.convertAndSend(destination, update);
 	}
 
 	@EventListener
@@ -88,12 +92,22 @@ public class ApplicationController {
 	@EventListener
 	public void handleEstimationUpdate(EstimationUpdateEvent event) {
 		Estimation estimation = event.getPayload();
+		String poolName = event.getPool().getName();
 		
 		ClientUpdate update = new ClientUpdate.Of("estimationsUpdate")
 				.with("payload",estimation)
 				.build();
 		
-		dispatch(update);
+		// new dispatch, per pool
+		String destination = String.format("/topic/%s", poolName);
+		dispatch(update,destination);
+
+		// legacy (for now)
+		if ("ahashpool".equals(poolName)) {
+			dispatch(update);			
+		}
+		
+		
 	}
 
 }

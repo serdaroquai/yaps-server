@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.Util;
@@ -23,17 +24,25 @@ public class Config {
 		int port;
 		String subscribe;
 		String tag;
+		Pool pool;
 		
-		public static StratumConnection from(PoolDetail detail) {
+		public static StratumConnection from(Pool pool, PoolDetail detail) {
 			StratumConnection stratumConnection = new StratumConnection();
-			stratumConnection.host = String.format("%s.mine.ahashpool.com",detail.getAlgo()); //TODO hard coded
+			stratumConnection.pool = pool;
+			stratumConnection.host = String.format("%s.%s",detail.getAlgo(), pool.getBaseUrl()); 
 			stratumConnection.port = detail.getPort();
 			stratumConnection.algo = Algorithm.getByAhashpoolKey(detail.getAlgo()).get();
-			stratumConnection.subscribe = "{\"params\": [\"1NR79WdLrParkFYSrKjpAhKz3phPNJjyxF\", \"c=BTC\"], \"id\": 2, \"method\": \"mining.authorize\"}";
-			stratumConnection.tag = "N/A";
+			stratumConnection.subscribe = String.format("{\"params\": [\"1NR79WdLrParkFYSrKjpAhKz3phPNJjyxF\", \"c=BTC\"], \"id\": 2, \"method\": \"mining.authorize\"}");
+			stratumConnection.tag = detail.getSymbol() == null ? detail.getKey() : detail.getSymbol();
 			return stratumConnection;
 		}
 		
+		public Pool getPool() {
+			return pool;
+		}
+		public void setPool(Pool pool) {
+			this.pool = pool;
+		}
 		public String getTag() {
 			return tag;
 		}

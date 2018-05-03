@@ -27,6 +27,7 @@ public class Estimation {
 		this.symbol = difficulty.getSymbol();
 		this.difficulty = difficulty.getDifficulty();
 		this.blockHeight = difficulty.getBlockHeight();
+		
 	}
 	
 	public String getId() {

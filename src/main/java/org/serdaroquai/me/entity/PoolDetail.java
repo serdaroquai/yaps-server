@@ -18,6 +18,7 @@ public class PoolDetail {
     private int lastblock;
     private long timesincelast;
     private String symbol;
+    private String key; // added this since key plays a role when creating stratum connection param "mc=XVG-lyra2v2"
 	
 	public PoolDetail(
 			@JsonProperty("algo") String algo, 
@@ -45,6 +46,14 @@ public class PoolDetail {
 	
 	public PoolDetail() {}
 
+	public String getKey() {
+		return key;
+	}
+	
+	public void setKey(String key) {
+		this.key = key;
+	}
+	
 	public String getAlgo() {
 		return algo;
 	}

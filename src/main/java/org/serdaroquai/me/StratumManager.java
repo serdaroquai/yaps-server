@@ -3,7 +3,6 @@ package org.serdaroquai.me;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,9 +12,11 @@ import java.util.function.Function;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.serdaroquai.me.Config.StratumConnection;
+import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.Difficulty;
 import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.event.DifficultyUpdateEvent;
+import org.serdaroquai.me.event.PoolDetailEvent;
 import org.serdaroquai.me.event.StratumEvent;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.Util;
@@ -24,6 +25,7 @@ import org.serdaroquai.me.service.StratumConnectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -38,12 +40,12 @@ public class StratumManager {
 	@Autowired RestService restService;
 	@Autowired StratumConnectionService stratumService;
 	@Autowired ApplicationEventPublisher applicationEventPublisher;
-
+	@Autowired Config config;
+	@Autowired PoolConfig poolConfig;
 	
-	/**
-	 * Currently only for one pool, later can be extended
-	 */
-	Map<String,PoolDetail> poolDetails = Collections.emptyMap();
+	@Value("${log.stratumEvents:false}") boolean logStratumEvents;
+
+	Map<Pool,Map<String,PoolDetail>> poolDetails = new ConcurrentHashMap<>();
 	
 	/**
 	 * Stores stratumConnection, and connection cancel handle as value
@@ -55,21 +57,28 @@ public class StratumManager {
 	
 	@Scheduled(fixedDelay=30000)
 	public void getPoolDetails() {
-		try {
-			poolDetails = restService.getPoolDetails();			
-		} catch (Exception e) {
-			logger.error("Can not get pool details");
-		}
-	}	
+		poolConfig.getPool().values().forEach(pool -> restService.getPoolDetails(pool));
+	}
 
-	public void handlePoolDetailEvent() {
-		
-		// filter pool details for only algos we are interested in and convert them to stratum connections
-		poolDetails.values().stream()
-			.filter(detail -> Algorithm.getByAhashpoolKey(detail.getAlgo()).isPresent())
-			.map(detail -> StratumConnection.from(detail))
-			.filter(stratum -> connections.get(stratum) == null) // check if there is already an open connection
-			.forEach(stratum -> startListening(stratum)); // start if there is none
+	@EventListener
+	public void handleEvent(PoolDetailEvent event) {
+		poolDetails.put(event.getPool(), event.getPayload());
+	}
+	
+	private void shouldStartAllConnections() {
+		poolDetails.entrySet().stream().forEach(
+				entry -> {
+					
+					Pool pool = entry.getKey();
+					Map<String,PoolDetail> poolDetailMap = entry.getValue();
+					
+					// filter pool details for only algos we are interested in and convert them to stratum connections
+					poolDetailMap.values().stream()
+						.filter(detail -> Algorithm.getByAhashpoolKey(detail.getAlgo()).isPresent())
+						.map(detail -> StratumConnection.from(pool, detail))
+						.filter(stratum -> connections.get(stratum) == null) // check if there is already an open connection
+						.forEach(stratum -> startListening(stratum)); // start if there is none
+				});
 	}
 	
 	private void startListening(StratumConnection stratum) {
@@ -85,7 +94,7 @@ public class StratumManager {
 	@Scheduled(fixedDelay=10000)
 	public void watchDog() {
 		
-		handlePoolDetailEvent();
+		shouldStartAllConnections();
 		
 		//check if there are any connections that did not produce any update for a long time and cancel them
 		Instant now = Instant.now();
@@ -119,6 +128,10 @@ public class StratumManager {
 	@EventListener
 	public void handleEvent(final StratumEvent event) {
 
+		if (logStratumEvents) {
+			logger.info(event.toString());
+		}
+		
 		StratumConnection stratum = event.getContext();
 		
 		if (event.isDisconnected()) {
@@ -133,18 +146,18 @@ public class StratumManager {
 				JSONArray parameters = event.getPayload().getJSONArray("params");
 				String nBits = (String) parameters.get(6);
 				String coinbase1 = (String) parameters.get(2);
-				BigDecimal difficultyDecoded = Util.diffToInteger(nBits, stratum.getAlgo());
-				int blockHeight = Util.getBlockHeight(coinbase1);
 				Algorithm algo = stratum.getAlgo();
-				String tag = getSymbol(blockHeight, algo, poolDetails);
+				BigDecimal difficultyDecoded = Util.diffToInteger(nBits, algo);
+				int blockHeight = Util.getBlockHeight(coinbase1);
+				String tag = getSymbol(blockHeight, algo, poolDetails.get(stratum.getPool()));
 				
 				Difficulty diff = new Difficulty(Instant.now().toEpochMilli(),algo,tag,difficultyDecoded,blockHeight);
 				
 				Difficulty previous = latestDiffMap.put(stratum,diff);
 				
 				// publish difficulty update only if there is a change in difficulty
-				if (previous == null || previous.getDifficulty().compareTo(diff.getDifficulty()) != 0) {
-					applicationEventPublisher.publishEvent(new DifficultyUpdateEvent(this, diff));
+				if (previous == null || !previous.equals(diff)) {
+					applicationEventPublisher.publishEvent(new DifficultyUpdateEvent(this, diff, stratum.getPool()));
 				}
 				
 			} catch (JSONException e) {

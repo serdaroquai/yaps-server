@@ -2,7 +2,6 @@ package org.serdaroquai.me.service;
 
 import static org.serdaroquai.me.misc.Util.isEmpty;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
@@ -17,10 +16,12 @@ import java.util.stream.StreamSupport;
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
 import org.serdaroquai.me.CoinConfig.Coin;
+import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.entity.WhattomineBrief;
 import org.serdaroquai.me.entity.WhattomineBriefEnvelope;
 import org.serdaroquai.me.entity.WhattomineDetail;
+import org.serdaroquai.me.event.PoolDetailEvent;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.ExchangeRate;
 import org.slf4j.Logger;
@@ -38,9 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -439,10 +438,10 @@ public class RestService {
 	}
 	
 	@Async("restExecutor")
-	public Future<Map<String,Algo>> getPoolStatus() throws JsonParseException, JsonMappingException, IOException {
+	public Future<Map<String,Algo>> getPoolStatus(Pool pool) {
 		
 		try {
-			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl("https://ahashpool.com/api/status");
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(pool.getStatusUrl());
 			
 			//ahashpool returns text/xml, so receive as string parse json manually
 			ResponseEntity<String> response = restTemplate.exchange(
@@ -457,12 +456,12 @@ public class RestService {
 			long now = Instant.now().toEpochMilli();
 			map.values().stream().forEach(a -> a.setTimestamp(now));
 			
-			applicationEventPublisher.publishEvent(new PoolQueryEvent(this, map, "ahashpool"));
+			applicationEventPublisher.publishEvent(new PoolQueryEvent(this, map, pool));
 			
 			return new AsyncResult<Map<String,Algo>>(map);
 			
 		} catch (Exception e) {
-			logger.error(String.format("Error getting pool status: %s",e.getMessage()));
+			logger.error(String.format("Error getting %s status: %s",pool, e.getMessage()));
 			
 		}
 		return new AsyncResult<Map<String,Algo>>(null);
@@ -470,12 +469,11 @@ public class RestService {
 	}
 	
 	//https://www.ahashpool.com/api/currencies/
-	public Map<String,PoolDetail> getPoolDetails() {
-		
-		Map<String,PoolDetail> map = Collections.emptyMap();
+	@Async
+	public Future<Map<String,PoolDetail>> getPoolDetails(Pool pool) {
 		
 		try {
-			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl("https://ahashpool.com/api/currencies");
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(pool.getCurrencyUrl());
 			
 			//ahashpool returns text/xml, so receive as string parse json manually
 			ResponseEntity<String> response = restTemplate.exchange(
@@ -484,14 +482,20 @@ public class RestService {
 					null, 
 					String.class);
 			
-			map = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, PoolDetail>>(){});
+			Map<String,PoolDetail> map = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, PoolDetail>>(){});
 		
-			return map;
+			// set key values 
+			map.entrySet().parallelStream().forEach(e-> e.getValue().setKey(e.getKey()));
+			
+			applicationEventPublisher.publishEvent(new PoolDetailEvent(this, map, pool));
+			
+			return new AsyncResult<Map<String,PoolDetail>>(map);
 			
 		} catch (Exception e) {
-			//TODO handle exceptions?
-			throw new RuntimeException(e);
+			logger.error(String.format("Can not get %s details: %s", pool, e.getMessage()));
 		}
+		
+		return new AsyncResult<Map<String,PoolDetail>>(null);
 	}
 
 	
