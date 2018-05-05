@@ -1,8 +1,11 @@
 package org.serdaroquai.me.components;
 
+import static org.serdaroquai.me.misc.Util.*;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,9 +19,11 @@ import org.serdaroquai.me.PoolConfig;
 import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.Difficulty;
 import org.serdaroquai.me.entity.Estimation;
+import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.event.DifficultyUpdateEvent;
 import org.serdaroquai.me.event.EstimationUpdateEvent;
 import org.serdaroquai.me.event.MissingCoinDataEvent;
+import org.serdaroquai.me.event.PoolDetailEvent;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.Pair;
@@ -109,6 +114,21 @@ public class EstimationManager {
 	
 	public Map<Algorithm,Estimation> getEstimationsMap() {
 		return new ConcurrentHashMap<Algorithm,Estimation>(latestEstimations);
+	}
+	
+	@EventListener
+	public void handleEvent(PoolDetailEvent event) {
+		// update block rewards (if pool detail contains them)
+		Map<String, PoolDetail> details = event.getPayload();
+		details.values().parallelStream()
+			.filter(detail -> detail.getReward() != null && BigDecimal.ZERO.compareTo(detail.getReward()) != 0)
+			.forEach(detail -> {
+				String symbol = isEmpty(detail.getSymbol()) ? detail.getKey() : detail.getSymbol();
+				
+				Map<Integer,BigDecimal> rewardMap = new HashMap<>();
+				rewardMap.put(detail.getHeight(), detail.getReward());
+				coinConfig.createOrGet(symbol).setBlockReward(rewardMap);
+			});
 	}
 	
 	@EventListener

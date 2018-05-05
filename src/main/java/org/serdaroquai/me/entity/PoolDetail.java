@@ -19,6 +19,7 @@ public class PoolDetail {
     private long timesincelast;
     private String symbol;
     private String key; // added this since key plays a role when creating stratum connection param "mc=XVG-lyra2v2"
+    private BigDecimal reward; // zergpool has this, why not use it
 	
 	public PoolDetail(
 			@JsonProperty("algo") String algo, 
@@ -30,7 +31,8 @@ public class PoolDetail {
 			@JsonProperty("24h_btc") int dayBtc,
 			@JsonProperty("lastblock") int lastblock,
 			@JsonProperty("timesincelast") long timesincelast, 
-			@JsonProperty("symbol") String symbol) {
+			@JsonProperty("symbol") String symbol,
+			@JsonProperty("reward") BigDecimal reward) {
 		
 		this.algo = algo;
 		this.port = port;
@@ -42,10 +44,19 @@ public class PoolDetail {
 		this.lastblock = lastblock;
 		this.timesincelast = timesincelast;
 		this.symbol = symbol;
+		this.reward = reward;
 	}
 	
 	public PoolDetail() {}
 
+	public BigDecimal getReward() {
+		return reward;
+	}
+	
+	public void setReward(BigDecimal reward) {
+		this.reward = reward;
+	}
+	
 	public String getKey() {
 		return key;
 	}
@@ -78,7 +89,7 @@ public class PoolDetail {
 		this.name = name;
 	}
 
-	public long getHeight() {
+	public int getHeight() {
 		return height;
 	}
 
