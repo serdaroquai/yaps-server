@@ -68,7 +68,7 @@ public class ApplicationController {
 		String destination = (String) event.getMessage().getHeaders().get("simpDestination");
 		
 		switch (destination) {
-		case "/topic/estimations":
+		case "/user/queue/private":
 			
 			Of builder = new ClientUpdate.Of("estimationsUpdate");
 			estimationManager.getEstimationsMap().forEach((key,value) -> builder.with(key.toString(), value));
