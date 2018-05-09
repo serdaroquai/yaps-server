@@ -48,7 +48,7 @@ public class ExchangeComponent {
 						futures.add(restService.getCoinMarketCapTicker());
 						futures.add(restService.getCryptoBridgeTicker());
 						futures.add(restService.getYobitTicker()); // only fetches coins with idMap.yobit=symbol_btc
-						//TODO graviex ticker
+						futures.add(restService.getGraviexMarkets());
 						
 						for (Future<Map<String,ExchangeRate>> future : futures) {
 							Map<String, ExchangeRate> rates = future.get();
