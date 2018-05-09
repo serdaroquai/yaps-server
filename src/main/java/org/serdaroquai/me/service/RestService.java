@@ -9,9 +9,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import javax.annotation.PostConstruct;
 
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
@@ -145,7 +148,6 @@ public class RestService {
 		}
 	}
 		
-		
 	//https://graviex.net:443//api/v2/markets.json
 	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
@@ -185,7 +187,9 @@ public class RestService {
 				.forEach(entry -> {
 					String symbol = entry.getValue();
 					JsonNode ticker = result.get(entry.getKey()).get("ticker");
-					symbolPriceMap.put(symbol, new ExchangeRate(ticker.get("last").decimalValue(), ticker.get("volbtc").decimalValue()));
+					// api returns 0 as numeric and everything else as text hence the conversion below
+					BigDecimal volBtc = ticker.get("volbtc").textValue() == null ? BigDecimal.ZERO : new BigDecimal(ticker.get("volbtc").textValue());
+					symbolPriceMap.put(symbol, new ExchangeRate(new BigDecimal(ticker.get("last").textValue()), volBtc));
 				});
 			
 			
