@@ -11,6 +11,8 @@ import java.util.concurrent.Executor;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.serdaroquai.me.misc.Util;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.ApplicationEventMulticaster;
 import org.springframework.context.event.SimpleApplicationEventMulticaster;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -151,13 +154,21 @@ public class ApplicationConfig implements AsyncConfigurer{
 			@Value("${proxy.port:}") String port,
 			@Value("${restService.connectTimeout:15000}") int connectTimeout,
 			@Value("${restService.readTimeout:15000}") int readTimeout) {
-	    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-	    if (!"".equals(ip) && !"".equals(port)) {
-	    	Proxy proxy= new Proxy(Type.HTTP, new InetSocketAddress(ip, Integer.valueOf(port)));
-	    	requestFactory.setProxy(proxy);
-	    }
-	    requestFactory.setConnectTimeout(connectTimeout);
-	    requestFactory.setReadTimeout(readTimeout);
-	    return new RestTemplate(requestFactory);
+		
+		CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+		HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+		factory.setConnectTimeout(connectTimeout);
+		factory.setReadTimeout(readTimeout);
+		return  new RestTemplate(factory);
+	    
+		
+//		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+//	    if (!"".equals(ip) && !"".equals(port)) {
+//	    	Proxy proxy= new Proxy(Type.HTTP, new InetSocketAddress(ip, Integer.valueOf(port)));
+//	    	requestFactory.setProxy(proxy);
+//	    }
+//	    requestFactory.setConnectTimeout(connectTimeout);
+//	    requestFactory.setReadTimeout(readTimeout);
+//	    return new RestTemplate(requestFactory);
 	}
 }
