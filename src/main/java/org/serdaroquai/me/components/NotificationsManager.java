@@ -100,11 +100,20 @@ public class NotificationsManager {
 				adminId, 
 				String.format("Currently %s rigs connected. %s ", connectedUsers.size(), connectedUsers)));
 		
+		List<Pair<Coin,Algorithm>> missing = getMissingCoinData();
 		applicationEventPublisher.publishEvent(new SendTelegramMessageEvent(
 				this, 
 				adminId, 
-				String.format("Missing %s coin data. %s ", missingCoinData.size(), missingCoinData)));
+				String.format("Missing %s coin data. %s ", missing.size(), missing)));
 		
+	}
+	
+	private List<Pair<Coin,Algorithm>> getMissingCoinData() {
+		return missingCoinData.stream()
+			.filter(pair -> {
+				return pair.getFirst().getExchangeRate() == null || pair.getFirst().getBlockReward() == null;
+			})
+			.collect(Collectors.toList());
 	}
 	
 	@EventListener

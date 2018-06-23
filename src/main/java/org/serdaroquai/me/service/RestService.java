@@ -9,12 +9,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import javax.annotation.PostConstruct;
 
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
@@ -55,6 +52,42 @@ public class RestService {
 	@Autowired RestTemplate restTemplate;
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
+	
+	//https://api.crex24.com/v2/public/tickers
+	public Future<Map<String, ExchangeRate>> getCrex24Ticker() {
+		String urlString = "https://api.crex24.com/v2/public/tickers";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> node.get("instrument").textValue().contains("-BTC"))
+					.filter(node -> node.get("last").decimalValue() != null)
+					.filter(node -> node.get("volumeInBtc").decimalValue() != null)
+					.collect(Collectors.toMap(
+							node -> node.get("instrument").textValue().replaceFirst("-BTC", ""), 
+							node -> {
+								BigDecimal price = node.get("last").decimalValue();
+								BigDecimal btcVolume = node.get("volumeInBtc").decimalValue();;
+								return new ExchangeRate(price, btcVolume);
+							}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
 	
 	//https://yobit.net/api/3/ticker/{coin_btc}
 	@Async("restExecutor")
