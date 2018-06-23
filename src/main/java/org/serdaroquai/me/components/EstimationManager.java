@@ -1,8 +1,11 @@
 package org.serdaroquai.me.components;
 
+import static org.serdaroquai.me.misc.Util.*;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,11 +15,15 @@ import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
 import org.serdaroquai.me.CoinConfig.Coin;
 import org.serdaroquai.me.Config;
+import org.serdaroquai.me.PoolConfig;
+import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.Difficulty;
 import org.serdaroquai.me.entity.Estimation;
+import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.event.DifficultyUpdateEvent;
 import org.serdaroquai.me.event.EstimationUpdateEvent;
 import org.serdaroquai.me.event.MissingCoinDataEvent;
+import org.serdaroquai.me.event.PoolDetailEvent;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.Algorithm;
 import org.serdaroquai.me.misc.Pair;
@@ -33,10 +40,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class EstimationManager {
 
+	private final static BigDecimal ONE_DAY_IN_SECONDS = new BigDecimal(24*60*60);
+	private final static BigDecimal ONE_KILO_HASH = new BigDecimal(1000);
+	private final static BigDecimal DIFF_CONSTANT = new BigDecimal(Math.pow(2, 32));
+	
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired Config config;
 	@Autowired CoinConfig coinConfig;
+	@Autowired PoolConfig poolConfig;
 	@Autowired RestService restService;
 	@Autowired WhattomineComponent whattomineComponent;
 	@Autowired ExchangeComponent exchange;
@@ -44,59 +56,51 @@ public class EstimationManager {
 	@Value("${estimationManager.queryFrequency:120}") long queryFrequencyInSeconds;
 	
 	private Map<Algorithm,Estimation> latestEstimations = new ConcurrentHashMap<>();
-	private Map<Algorithm, Algo> poolStatus = new ConcurrentHashMap<>();
-	private long lastPoolQueryEvent = 0L;
+	private Map<Pool,Map<Algorithm, Algo>> poolStatus = new ConcurrentHashMap<>();
 	
 	@Scheduled(fixedDelayString = "${updatePeriod:30000}")
 	private void tick() {
-		try {
-			restService.getPoolStatus();			
-		} catch (Exception e) {
-			logger.error("Error getting pool status",e);
-		}
+		poolConfig.getPool().values().forEach(pool -> restService.getPoolStatus(pool));
 	}
 	
-	private boolean hasValidPoolStatus(Algorithm algo) {
+	private boolean hasValidPoolStatus(Algorithm algo, Pool pool) {
+		// no pool status value just keep on
+		if (poolStatus.get(pool) == null)
+			return true;
 		
-		BigDecimal poolHashRateNow = poolStatus.get(algo) == null ? BigDecimal.ZERO : poolStatus.get(algo).getHashrate();
+		BigDecimal poolHashRateNow = poolStatus.get(pool).get(algo) == null ? BigDecimal.ZERO : poolStatus.get(pool).get(algo).getHashrate();
 		return poolHashRateNow.compareTo(BigDecimal.ZERO) != 0 || poolStatus.isEmpty();
 		
 	}
 	
-	private BigDecimal estimate(Coin coin, Difficulty difficulty) {
+	private BigDecimal estimate(Coin coin, Difficulty difficulty, Pool pool) {
 		
-		if (!hasValidPoolStatus(difficulty.getAlgo())) {
+		if (!hasValidPoolStatus(difficulty.getAlgo(), pool)) {
 			return BigDecimal.ZERO;
 		}
 		
-		// total network hashrate
-		BigDecimal networkHashrate = difficulty.getDifficulty().multiply(new BigDecimal(Math.pow(2, 32))).divide(coin.getBlockTime(),0,RoundingMode.FLOOR);
+		BigDecimal blockReward = coin.getBlockRewardByHeight(difficulty.getBlockHeight()).multiply(coin.getExchangeRate());
 		
-		// how much BTC is produced per day with network hashrate 
-		BigDecimal networkBtcEarning = coin.getBlockRewardByHeight(difficulty.getBlockHeight())
-				.multiply(new BigDecimal(60*60*24))
-				.divide(coin.getBlockTime(), 5, RoundingMode.HALF_DOWN)
-				.multiply(coin.getExchangeRate());
-		
-		BigDecimal btcPerKhashPerDay = new BigDecimal(1000).multiply(networkBtcEarning).divide(networkHashrate,RoundingMode.HALF_DOWN);
-		
-		return btcPerKhashPerDay;
+		return ONE_DAY_IN_SECONDS.multiply(blockReward).multiply(ONE_KILO_HASH)
+				.divide(difficulty.getDifficulty().multiply(DIFF_CONSTANT),12,RoundingMode.HALF_DOWN);
 	}
 
 	@EventListener
 	public void handleEvent(DifficultyUpdateEvent event) {
 		
+		Pool pool = event.getPool();
 		Difficulty difficulty = event.getPayload();
+		
 		Optional<Coin> optional = whattomineComponent.getDetails(new Pair<String,Algorithm>(difficulty.getSymbol(),difficulty.getAlgo()));
 		Coin coin = optional.orElse(coinConfig.createOrGet(difficulty.getSymbol()));
 		exchange.getLastPrice(coin).ifPresent(price -> coin.setExchangeRate(price));
 		
 		if (coin.hasAllData()) {
 			
-			Estimation estimation = new Estimation(estimate(coin, difficulty), difficulty);
+			Estimation estimation = new Estimation(estimate(coin, difficulty, pool), difficulty);
 			latestEstimations.put(difficulty.getAlgo(), estimation);
 			logger.debug(estimation.toString());
-			applicationEventPublisher.publishEvent(new EstimationUpdateEvent(this, estimation));
+			applicationEventPublisher.publishEvent(new EstimationUpdateEvent(this, estimation, pool));
 			
 		} else {
 			applicationEventPublisher.publishEvent(new MissingCoinDataEvent(this, coin, difficulty.getAlgo()));
@@ -113,15 +117,24 @@ public class EstimationManager {
 	}
 	
 	@EventListener
+	public void handleEvent(PoolDetailEvent event) {
+		// update block rewards (if pool detail contains them)
+		Map<String, PoolDetail> details = event.getPayload();
+		details.values().parallelStream()
+			.filter(detail -> detail.getReward() != null && BigDecimal.ZERO.compareTo(detail.getReward()) != 0)
+			.forEach(detail -> {
+				String symbol = isEmpty(detail.getSymbol()) ? detail.getKey() : detail.getSymbol();
+				
+				Map<Integer,BigDecimal> rewardMap = new HashMap<>();
+				rewardMap.put(detail.getHeight(), detail.getReward());
+				coinConfig.createOrGet(symbol).setBlockReward(rewardMap);
+			});
+	}
+	
+	@EventListener
 	public void handleEvent(PoolQueryEvent event) {
 		
-		if (lastPoolQueryEvent > event.getTimestamp()) {
-			logger.warn("Discarding stale poolquery event");
-			return;
-		}
-		
-		lastPoolQueryEvent = event.getTimestamp();
-		
+		Pool pool = event.getPool();
 		Map<String, Algo> updates = event.getPayload();
 		
 		// filter out the ones not in algo and substitute them by proper key
@@ -141,14 +154,14 @@ public class EstimationManager {
 				algo.setEstimate24hr(speed.multiply(algo.getEstimate24hr()));
 			});
 		
-		poolStatus = collect;
+		poolStatus.put(pool, collect);
 		
 //		// publish event
 //		applicationEventPublisher.publishEvent(new PoolUpdateEvent(this, collect));
 		
 	}
 	
-	public Map<Algorithm, Algo> getPoolStatus() {
+	public Map<Pool,Map<Algorithm, Algo>> getPoolStatus() {
 		return Collections.unmodifiableMap(poolStatus);
 	}
 

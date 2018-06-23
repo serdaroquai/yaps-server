@@ -82,7 +82,10 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void configureClientInboundChannel(ChannelRegistration registration) {
-		registration.taskExecutor().corePoolSize(Runtime.getRuntime().availableProcessors() * 2);
+		
+		// using primary taskExecutor 
+//		registration.taskExecutor().corePoolSize(Runtime.getRuntime().availableProcessors() * 2);
+		
 		registration.interceptors(new ChannelInterceptorAdapter() {
 			
 			@Override
@@ -106,10 +109,10 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
 		});
 	}
 	
-	@Override
-	public void configureClientOutboundChannel(ChannelRegistration registration) {
-		registration.taskExecutor().corePoolSize(Runtime.getRuntime().availableProcessors() * 2);
-	}
+//	@Override
+//	public void configureClientOutboundChannel(ChannelRegistration registration) {
+//		registration.taskExecutor().corePoolSize(Runtime.getRuntime().availableProcessors() * 2);
+//	}
 	
 	@Override
 	public void configureWebSocketTransport(WebSocketTransportRegistration registry) {

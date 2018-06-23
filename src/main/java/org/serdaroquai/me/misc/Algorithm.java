@@ -5,6 +5,8 @@ import java.util.Optional;
 
 public enum Algorithm {
 
+	Lyra2z("lyra2z",""),
+	X16S("x16s",""),
 	X16R("x16r",""),
 	X17("x17",""),
 	PHI1612("phi",""),
@@ -15,24 +17,24 @@ public enum Algorithm {
 	Xevan("xevan",""),
 	X11Gost("sib","x11gost"),
 	Skein("skein",""),
-	Equihash("","equihash"),
+//	Equihash("","equihash"),
 	MyriadGroestl("myr-gr",""),
 	Skunk("skunk",""),
-	X11("x11",""),
-	Scrpyt("scrypt",""),
-	Qubit("qubit",""),
-	BlakeCoin("blakecoin",""),
-	Hmq1725("hmq1725",""),
-	Yescrypt("yescrypt",""),
+//	X11("x11",""),
+//	Scrypt("scrypt",""),
+//	Qubit("qubit",""),
+//	BlakeCoin("blakecoin",""),
+//	Hmq1725("hmq1725",""),
+//	Yescrypt("yescrypt",""),
 	Bitcore("bitcore",""),
 	C11("c11",""),
 	Groestl("groestl",""),
-	Hsr("hsr",""),
+//	Hsr("hsr",""),
 	//Lbry("lbry","",7), //need to figure out how to parse a lbry blockheight so for now lets forget it
 	Timetravel("timetravel",""),
-	SHA3("keccak",""),
-	Blake2s("blake2s",""),
-	M7m("m7m","");
+//	SHA3("keccak",""),
+	Blake2s("blake2s","");
+//	M7m("m7m","");
 	
 	String ahashpoolKey;
 	String nicehashKey;

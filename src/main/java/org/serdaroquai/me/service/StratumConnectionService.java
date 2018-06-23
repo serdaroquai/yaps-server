@@ -26,7 +26,7 @@ public class StratumConnectionService {
 	private static final String greeting = "{\"method\":\"mining.subscribe\",\"id\":\"1\",\"jsonrpc\":\"2.0\",\"params\":[]}";
 	@Autowired ApplicationEventPublisher applicationEventPublisher;
 	
-	@Async
+	@Async("stratumService")
 	public Future<Void> connect(StratumConnection context) {
 		
 		Instant start = Instant.now();

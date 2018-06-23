@@ -1,28 +1,29 @@
 package org.serdaroquai.me.service;
 
-import java.io.IOException;
+import static org.serdaroquai.me.misc.Util.isEmpty;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import javax.annotation.PostConstruct;
-
 import org.serdaroquai.me.Algo;
 import org.serdaroquai.me.CoinConfig;
 import org.serdaroquai.me.CoinConfig.Coin;
+import org.serdaroquai.me.PoolConfig.Pool;
 import org.serdaroquai.me.entity.PoolDetail;
 import org.serdaroquai.me.entity.WhattomineBrief;
 import org.serdaroquai.me.entity.WhattomineBriefEnvelope;
 import org.serdaroquai.me.entity.WhattomineDetail;
+import org.serdaroquai.me.event.PoolDetailEvent;
 import org.serdaroquai.me.event.PoolQueryEvent;
 import org.serdaroquai.me.misc.ExchangeRate;
-import org.serdaroquai.me.misc.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,9 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -54,8 +53,136 @@ public class RestService {
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
 	
+	//https://api.crex24.com/v2/public/tickers
+	public Future<Map<String, ExchangeRate>> getCrex24Ticker() {
+		String urlString = "https://api.crex24.com/v2/public/tickers";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> node.get("instrument").textValue().contains("-BTC"))
+					.filter(node -> node.get("last").decimalValue() != null)
+					.filter(node -> node.get("volumeInBtc").decimalValue() != null)
+					.collect(Collectors.toMap(
+							node -> node.get("instrument").textValue().replaceFirst("-BTC", ""), 
+							node -> {
+								BigDecimal price = node.get("last").decimalValue();
+								BigDecimal btcVolume = node.get("volumeInBtc").decimalValue();;
+								return new ExchangeRate(price, btcVolume);
+							}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+	
+	//https://yobit.net/api/3/ticker/{coin_btc}
+	@Async("restExecutor")
+	public Future<Map<String, ExchangeRate>> getYobitTicker() {
+		// for now we will only get coins with yobit in their idMaps
+		List<Coin> yobitCoins = coinConfig.getCoin().values().parallelStream()
+			.filter(coin -> !coin.getIdMap().isEmpty())
+			.filter(coin -> coin.getIdMap().get("yobit") != null)
+			.collect(Collectors.toList());
+		
+		if (yobitCoins.isEmpty()) {
+			return new AsyncResult<Map<String,ExchangeRate>>(Collections.emptyMap());
+		}
+		
+		String yobitString = yobitCoins.stream()
+				.map(coin -> coin.getIdMap().get("yobit"))
+				.collect(Collectors.joining("-"));
+		
+		String urlString = String.format("https://yobit.net/api/3/ticker/%s", yobitString);
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			// add header user agent for forbidden
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+			headers.add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36");
+			
+			HttpEntity<?> entity = new HttpEntity<>(headers);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					entity, 
+					String.class);
+			
+			JsonNode node = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = yobitCoins.parallelStream()
+				.collect(Collectors.toMap(
+						coin -> coin.getSymbol(), 
+						coin -> {
+							String yobitId = coin.getIdMap().get("yobit");
+							BigDecimal price = node.get(yobitId).get("last").decimalValue();
+							BigDecimal btcVolume = node.get(yobitId).get("vol").decimalValue();
+							return new ExchangeRate(price, btcVolume);
+						}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+	
+	//https://api.crypto-bridge.org/api/v1/ticker
+	@Async("restExecutor")
+	public Future<Map<String,ExchangeRate>> getCryptoBridgeTicker() {
+		
+		String urlString = "https://api.crypto-bridge.org/api/v1/ticker";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> node.get("id").textValue().contains("_BTC"))
+					.collect(Collectors.toMap(
+							node -> node.get("id").textValue().replaceFirst("_BTC", ""), 
+							node -> {
+								BigDecimal price = new BigDecimal(node.get("last").textValue());
+								BigDecimal btcVolume = new BigDecimal(node.get("volume").textValue()).multiply(price);
+								return new ExchangeRate(price, btcVolume);
+							}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+		
 	//https://graviex.net:443//api/v2/markets.json
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getGraviexMarkets() {
 		
 		String urlString = "https://graviex.net:443/api/v2/markets.json";
@@ -93,7 +220,9 @@ public class RestService {
 				.forEach(entry -> {
 					String symbol = entry.getValue();
 					JsonNode ticker = result.get(entry.getKey()).get("ticker");
-					symbolPriceMap.put(symbol, new ExchangeRate(ticker.get("last").decimalValue(), ticker.get("volbtc").decimalValue()));
+					// api returns 0 as numeric and everything else as text hence the conversion below
+					BigDecimal volBtc = ticker.get("volbtc").textValue() == null ? BigDecimal.ZERO : new BigDecimal(ticker.get("volbtc").textValue());
+					symbolPriceMap.put(symbol, new ExchangeRate(new BigDecimal(ticker.get("last").textValue()), volBtc));
 				});
 			
 			
@@ -106,7 +235,7 @@ public class RestService {
 	}
 	
 	// https://api.coinmarketcap.com/v1/ticker/?limit=0
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCoinMarketCapTicker() {
 		
 		String urlString = "https://api.coinmarketcap.com/v1/ticker/?limit=0";
@@ -123,8 +252,6 @@ public class RestService {
 			
 			JsonNode resultArray = objectMapper.readTree(response.getBody());
 			
-			// TODO this shouldn't be on a need to config basis, but for now lets keep it so
-			
 			// Make a list of coins that we are interested in from coinMarketCap
 			Map<String, Coin> coinsOfInterest = coinConfig.getCoin().values().parallelStream()
 					.filter(coin -> coin.getIdMap().containsKey("coinMarketCap"))
@@ -132,13 +259,32 @@ public class RestService {
 							coin -> coin.getIdMap().get("coinMarketCap"), 
 							coin -> coin));
 			
-			//coin market cap has no volume since its no exchange
+			// get the ones we are particularly interested in
 			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
 					.filter(node -> coinsOfInterest.containsKey(node.get("id").textValue()))
 					.collect(Collectors.toMap(
 							node -> node.get("symbol").textValue(),
 							node -> new ExchangeRate(new BigDecimal(node.get("price_btc").textValue()), BigDecimal.ZERO)));
-				
+			
+			// detect duplicate symbols
+			Map<String, Long> duplicateMap = StreamSupport.stream(resultArray.spliterator(), true)
+				.collect(Collectors.groupingBy(
+						node -> node.get("symbol").textValue(), 
+						Collectors.counting()))
+				.entrySet().parallelStream()
+					.filter(entry -> entry.getValue() > 1)
+					.collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue));
+							
+			//coin market cap has no volume since its no exchange
+			Map<String, ExchangeRate> restOfCoins = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> !duplicateMap.containsKey(node.get("symbol").textValue()))
+					.filter(node -> !isEmpty(node.get("price_btc").textValue()))
+					.collect(Collectors.toMap(
+							node -> node.get("symbol").textValue(),
+							node -> new ExchangeRate(new BigDecimal(node.get("price_btc").textValue()), BigDecimal.ZERO)));
+			
+//			//merge two maps
+			result.putAll(restOfCoins);
 			
 			return new AsyncResult<Map<String,ExchangeRate>>(result);
 			
@@ -149,7 +295,7 @@ public class RestService {
 	}
 	
 	//https://www.southxchange.com/api/prices
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getSouthExchangeMarkets() {
 		
 		String urlString = "https://www.southxchange.com/api/prices";
@@ -185,7 +331,7 @@ public class RestService {
 	}
 	
 	//https://www.cryptopia.co.nz/api/GetMarkets/BTC
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCryptopiaMarkets() {
 		
 		String urlString = "https://www.cryptopia.co.nz/api/GetMarkets/BTC";
@@ -219,7 +365,7 @@ public class RestService {
 		}
 	}
 	
-	@Async
+	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getCoinExchangeIoMarkets() {
 		
 		String urlString = "https://www.coinexchange.io/api/v1/getmarkets";
@@ -256,7 +402,7 @@ public class RestService {
 			
 			for (final JsonNode node : result) {
 				String symbol = idSymbolMap.get(node.get("MarketID").textValue());
-				if (!Util.isEmpty(symbol)) {
+				if (!isEmpty(symbol)) {
 					symbolPrice.put(symbol, new ExchangeRate(new BigDecimal(node.get("LastPrice").textValue()), new BigDecimal(node.get("BTCVolume").textValue())));					
 				}
 		    }
@@ -328,11 +474,11 @@ public class RestService {
 		
 	}
 	
-	@Async
-	public Future<Map<String,Algo>> getPoolStatus() throws JsonParseException, JsonMappingException, IOException {
+	@Async("restExecutor")
+	public Future<Map<String,Algo>> getPoolStatus(Pool pool) {
 		
 		try {
-			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl("https://ahashpool.com/api/status");
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(pool.getStatusUrl());
 			
 			//ahashpool returns text/xml, so receive as string parse json manually
 			ResponseEntity<String> response = restTemplate.exchange(
@@ -347,12 +493,12 @@ public class RestService {
 			long now = Instant.now().toEpochMilli();
 			map.values().stream().forEach(a -> a.setTimestamp(now));
 			
-			applicationEventPublisher.publishEvent(new PoolQueryEvent(this, map, "ahashpool"));
+			applicationEventPublisher.publishEvent(new PoolQueryEvent(this, map, pool));
 			
 			return new AsyncResult<Map<String,Algo>>(map);
 			
 		} catch (Exception e) {
-			logger.error(String.format("Error getting pool status: %s",e.getMessage()));
+			logger.error(String.format("Error getting %s status: %s",pool, e.getMessage()));
 			
 		}
 		return new AsyncResult<Map<String,Algo>>(null);
@@ -360,12 +506,11 @@ public class RestService {
 	}
 	
 	//https://www.ahashpool.com/api/currencies/
-	public Map<String,PoolDetail> getPoolDetails() {
-		
-		Map<String,PoolDetail> map = Collections.emptyMap();
+	@Async
+	public Future<Map<String,PoolDetail>> getPoolDetails(Pool pool) {
 		
 		try {
-			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl("https://ahashpool.com/api/currencies");
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(pool.getCurrencyUrl());
 			
 			//ahashpool returns text/xml, so receive as string parse json manually
 			ResponseEntity<String> response = restTemplate.exchange(
@@ -374,15 +519,21 @@ public class RestService {
 					null, 
 					String.class);
 			
-			map = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, PoolDetail>>(){});
+			Map<String,PoolDetail> map = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, PoolDetail>>(){});
+		
+			// set key values 
+			map.entrySet().parallelStream().forEach(e-> e.getValue().setKey(e.getKey()));
+			
+			applicationEventPublisher.publishEvent(new PoolDetailEvent(this, map, pool));
+			
+			return new AsyncResult<Map<String,PoolDetail>>(map);
 			
 		} catch (Exception e) {
-			//TODO handle exceptions?
-			logger.error("Can not get pool details");
+			logger.error(String.format("Can not get %s details: %s", pool, e.getMessage()));
 		}
 		
-		return map;
-
+		return new AsyncResult<Map<String,PoolDetail>>(null);
 	}
+
 	
 }

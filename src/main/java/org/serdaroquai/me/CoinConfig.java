@@ -42,7 +42,6 @@ public class CoinConfig {
 	
 	public static class Coin {
 		String symbol;
-		BigDecimal blockTime;
 		Map<Integer,BigDecimal> blockReward = new HashMap<>();
 		Map<String,String> idMap = new HashMap<>();
 		BigDecimal exchangeRate;
@@ -52,12 +51,6 @@ public class CoinConfig {
 		}
 		public void setSymbol(String symbol) {
 			this.symbol = symbol;
-		}
-		public BigDecimal getBlockTime() {
-			return blockTime;
-		}
-		public void setBlockTime(BigDecimal blockTime) {
-			this.blockTime = blockTime;
 		}
 		public Map<Integer, BigDecimal> getBlockReward() {
 			return blockReward;
@@ -77,10 +70,10 @@ public class CoinConfig {
 		
 		public BigDecimal getBlockRewardByHeight(int blockHeight) {
 			return blockReward.entrySet().parallelStream()
-				.filter(e -> e.getKey() < blockHeight)
-				.max((e1, e2) -> (blockHeight - e1.getKey()) - (blockHeight - e2.getKey()))
-				.get()
-				.getValue();
+					.filter(e -> e.getKey() < blockHeight)
+					.max((e1, e2) -> (blockHeight - e1.getKey()) - (blockHeight - e2.getKey()))
+					.get()
+					.getValue();
 		}
 		
 		public void setSingleBlockReward(BigDecimal blockReward) {
@@ -95,7 +88,7 @@ public class CoinConfig {
 		}
 		
 		public boolean hasAllData() {
-			return !Util.isEmpty(symbol) && blockReward != null && blockTime != null && exchangeRate != null;
+			return !Util.isEmpty(symbol) && !blockReward.isEmpty() && exchangeRate != null;
 		}
 		
 		@Override
@@ -123,7 +116,7 @@ public class CoinConfig {
 		}
 		@Override
 		public String toString() {
-			return String.format("%s [exchangeRate: %s, blockTime: %s, blockReward: %s]", symbol, exchangeRate, blockTime, blockReward);
+			return String.format("%s [exchangeRate: %s, blockReward: %s]", symbol, exchangeRate, blockReward);
 		}
 	}
 }

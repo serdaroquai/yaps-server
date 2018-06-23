@@ -46,7 +46,10 @@ public class ExchangeComponent {
 						futures.add(restService.getCoinExchangeIoMarkets());
 						futures.add(restService.getCryptopiaMarkets());
 						futures.add(restService.getCoinMarketCapTicker());
-						//TODO graviex ticker
+						futures.add(restService.getCryptoBridgeTicker());
+						futures.add(restService.getYobitTicker()); // only fetches coins with idMap.yobit=symbol_btc
+						futures.add(restService.getGraviexMarkets());
+						futures.add(restService.getCrex24Ticker());
 						
 						for (Future<Map<String,ExchangeRate>> future : futures) {
 							Map<String, ExchangeRate> rates = future.get();
@@ -69,7 +72,9 @@ public class ExchangeComponent {
 	
 	public Optional<BigDecimal> getLastPrice(Coin coin) {
 		try {
-			return Optional.ofNullable(getExchangeRates().get(coin.getSymbol()).getPrice());
+			ExchangeRate exchangeRate = getExchangeRates().get(coin.getSymbol());
+			return Optional.ofNullable(exchangeRate.getPrice());
+			
 		} catch (Exception e) {
 			return Optional.empty();
 		}
