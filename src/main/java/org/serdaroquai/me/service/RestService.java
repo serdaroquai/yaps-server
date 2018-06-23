@@ -53,6 +53,44 @@ public class RestService {
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
 	
+	//https://stocks.exchange/api2/ticker
+	@Async("restExecutor")
+	public Future<Map<String,ExchangeRate>> getStocksExchangeTicker() {
+		
+		String urlString = "https://stocks.exchange/api2/ticker";
+		logger.debug(String.format("Fetching resource %s", urlString));
+		
+		try {
+			UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(urlString);
+			
+			ResponseEntity<String> response = restTemplate.exchange(
+					builder.build().encode().toUri(), 
+					HttpMethod.GET, 
+					null, 
+					String.class);
+			
+			JsonNode resultArray = objectMapper.readTree(response.getBody());
+			
+			Map<String, ExchangeRate> result = StreamSupport.stream(resultArray.spliterator(), true)
+					.filter(node -> node.get("market_name").textValue().contains("_BTC"))
+					.collect(Collectors.toMap(
+							node -> node.get("market_name").textValue().replaceFirst("_BTC", ""), 
+							node -> {
+								// api returns 0 as numeric and everything else as text hence the conversion below
+								BigDecimal price = node.get("last").textValue() == null ? BigDecimal.ZERO : new BigDecimal(node.get("last").textValue());
+								BigDecimal btcVolume = node.get("vol").textValue() == null ? BigDecimal.ZERO : new BigDecimal(node.get("vol").textValue());
+								return new ExchangeRate(price, btcVolume);
+							}));
+			
+			return new AsyncResult<Map<String,ExchangeRate>>(result);
+			
+		} catch (Exception e) {
+			logger.error(String.format("Error fetching %s: %s", urlString, e.getMessage()));
+			throw new RuntimeException(e);
+		}
+	}
+
+	
 	//https://api.crex24.com/v2/public/tickers
 	public Future<Map<String, ExchangeRate>> getCrex24Ticker() {
 		String urlString = "https://api.crex24.com/v2/public/tickers";
