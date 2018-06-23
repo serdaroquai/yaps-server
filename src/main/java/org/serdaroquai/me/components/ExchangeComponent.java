@@ -50,6 +50,7 @@ public class ExchangeComponent {
 						futures.add(restService.getYobitTicker()); // only fetches coins with idMap.yobit=symbol_btc
 						futures.add(restService.getGraviexMarkets());
 						futures.add(restService.getCrex24Ticker());
+						futures.add(restService.getStocksExchangeTicker());
 						
 						for (Future<Map<String,ExchangeRate>> future : futures) {
 							Map<String, ExchangeRate> rates = future.get();
