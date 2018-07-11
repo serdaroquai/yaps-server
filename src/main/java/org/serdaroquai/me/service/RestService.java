@@ -53,11 +53,11 @@ public class RestService {
 	@Autowired ObjectMapper objectMapper;
 	@Autowired CoinConfig coinConfig;
 	
-	//https://stocks.exchange/api2/ticker
+	//https://app.stocks.exchange/api2/ticker
 	@Async("restExecutor")
 	public Future<Map<String,ExchangeRate>> getStocksExchangeTicker() {
 		
-		String urlString = "https://stocks.exchange/api2/ticker";
+		String urlString = "https://app.stocks.exchange/api2/ticker";
 		logger.debug(String.format("Fetching resource %s", urlString));
 		
 		try {
