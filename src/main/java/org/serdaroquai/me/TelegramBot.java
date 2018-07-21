@@ -12,8 +12,10 @@ import org.serdaroquai.me.components.EstimationManager;
 import org.serdaroquai.me.components.NotificationsManager;
 import org.serdaroquai.me.event.AdminSaysEvent;
 import org.serdaroquai.me.event.SendTelegramMessageEvent;
+import org.serdaroquai.me.event.SendWebSocketMessageEvent;
 import org.serdaroquai.me.event.StatusEvent;
 import org.serdaroquai.me.event.SubscribeEvent;
+import org.serdaroquai.me.misc.ClientUpdate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,10 +109,10 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    	
 	    	String raw = update.getMessage().getText();
 	    	String command = raw.split(" ")[0];
+	    	String userId = getUserId(update);
 	    	
 	    	if ("/subscribe".equals(command)) {
-	    		
-	    		String userId = getUserId(update); 
+
 	    		byte[] tokenBytes = applyDSASig(privateKey, userId);
 	    		String token = Base64.getEncoder().encodeToString(tokenBytes);
 	    		String message = String.format("userId=%s\ntoken=%s", userId, token);
@@ -127,6 +129,15 @@ public class TelegramBot extends TelegramLongPollingBot{
 	    			String message = raw.substring(5);	    			
 	    			applicationEventPublisher.publishEvent(new AdminSaysEvent(this, message));
 	    		}
+	    	}
+	    	
+	    	//user events
+	    	
+	    	if ("/status".equals(command)) {
+	    		applicationEventPublisher.publishEvent(new SendWebSocketMessageEvent(
+	    				this, 
+	    				userId, 
+	    				new ClientUpdate.Of("status").build()));
 	    	}
 	    }
 	    

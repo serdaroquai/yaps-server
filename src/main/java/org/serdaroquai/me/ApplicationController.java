@@ -6,6 +6,8 @@ import org.serdaroquai.me.components.EstimationManager;
 import org.serdaroquai.me.entity.Estimation;
 import org.serdaroquai.me.event.EstimationUpdateEvent;
 import org.serdaroquai.me.event.RigAliveEvent;
+import org.serdaroquai.me.event.SendTelegramMessageEvent;
+import org.serdaroquai.me.event.SendWebSocketMessageEvent;
 import org.serdaroquai.me.misc.ClientUpdate;
 import org.serdaroquai.me.misc.ClientUpdate.Of;
 import org.slf4j.Logger;
@@ -45,6 +47,11 @@ public class ApplicationController {
 			//"{"command":"alive","payload":"flagship"}
 			applicationEventPublisher.publishEvent(new RigAliveEvent(this, user.getName(), payload.textValue()));
 			break;
+		case "status":
+			applicationEventPublisher.publishEvent(new SendTelegramMessageEvent(
+					this,
+					user.getName(),
+					payload.textValue()));
 		default:
 		}
 	}
@@ -107,7 +114,14 @@ public class ApplicationController {
 			dispatch(update);			
 		}
 		
-		
+	}
+	
+	@EventListener
+	public void handle(SendWebSocketMessageEvent event) {
+		template.convertAndSendToUser(
+				event.getPayload().getFirst(), //to: userId 
+				"/queue/private", 
+				event.getPayload().getSecond()); //message
 	}
 
 }
