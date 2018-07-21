@@ -111,7 +111,8 @@ public class NotificationsManager {
 	private List<Pair<Coin,Algorithm>> getMissingCoinData() {
 		return missingCoinData.stream()
 			.filter(pair -> {
-				return pair.getFirst().getExchangeRate() == null || pair.getFirst().getBlockReward() == null;
+				return pair.getFirst().getExchangeRate() == null 
+						|| pair.getFirst().getBlockReward().isEmpty();
 			})
 			.collect(Collectors.toList());
 	}
