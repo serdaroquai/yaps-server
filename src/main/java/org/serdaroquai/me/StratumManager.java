@@ -143,10 +143,12 @@ public class StratumManager {
 			
 			// difficulty update
 			try {
-				JSONArray parameters = event.getPayload().getJSONArray("params");
-				String nBits = (String) parameters.get(6);
-				String coinbase1 = (String) parameters.get(2);
 				Algorithm algo = stratum.getAlgo();
+				
+				JSONArray parameters = event.getPayload().getJSONArray("params");
+				String nBits = (String) parameters.get(algo.getDifficultyIndex());
+				String coinbase1 = (String) parameters.get(algo.getCoinbaseIndex());
+				
 				BigDecimal difficultyDecoded = Util.diffToInteger(nBits, algo);
 				int blockHeight = Util.getBlockHeight(coinbase1);
 				String tag = getSymbol(blockHeight, algo, poolDetails.get(stratum.getPool()));
