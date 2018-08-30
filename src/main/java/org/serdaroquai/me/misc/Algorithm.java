@@ -35,18 +35,24 @@ public enum Algorithm {
 //	SHA3("keccak"),
 	Blake2s("blake2s"),
 //	M7m("m7m","");
-	PHI2("phi2");
+	PHI2("phi2","",3,7);
 	
 	String ahashpoolKey;
 	String nicehashKey;
+	int coinbaseIndex;
+	int difficultyIndex;
 	
 	private Algorithm(String ahashpoolKey) {
-		this(ahashpoolKey, "");
+		this(ahashpoolKey, "",2,6);
 	}
 	private Algorithm(String ahashpoolKey, String nicehashKey) {
+		this(ahashpoolKey, nicehashKey,2,6);
+	}
+	private Algorithm(String ahashpoolKey, String nicehashKey,int coinbaseIndex, int diffIndex) {
 		this.ahashpoolKey = ahashpoolKey;
 		this.nicehashKey = nicehashKey;
-		
+		this.coinbaseIndex = coinbaseIndex;
+		this.difficultyIndex = diffIndex;
 	}
 	
 	private String getNicehashKey() {
@@ -55,6 +61,14 @@ public enum Algorithm {
 
 	public String getAhashpoolKey() {
 		return ahashpoolKey;
+	}
+	
+	public int getCoinbaseIndex() {
+		return coinbaseIndex;
+	}
+	
+	public int getDifficultyIndex() {
+		return difficultyIndex;
 	}
 	
 	public static Optional<Algorithm> getByAhashpoolKey(String key) {
