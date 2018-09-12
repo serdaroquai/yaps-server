@@ -20,7 +20,7 @@ public enum Algorithm {
 //	Equihash("","equihash"),
 	MyriadGroestl("myr-gr"),
 	Skunk("skunk"),
-//	X11("x11"),
+	X11("x11"),
 //	Scrypt("scrypt"),
 //	Qubit("qubit"),
 //	BlakeCoin("blakecoin"),
