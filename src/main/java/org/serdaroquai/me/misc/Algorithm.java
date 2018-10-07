@@ -20,7 +20,7 @@ public enum Algorithm {
 //	Equihash("","equihash"),
 	MyriadGroestl("myr-gr"),
 	Skunk("skunk"),
-//	X11("x11"),
+	X11("x11"),
 //	Scrypt("scrypt"),
 //	Qubit("qubit"),
 //	BlakeCoin("blakecoin"),
@@ -35,7 +35,8 @@ public enum Algorithm {
 //	SHA3("keccak"),
 	Blake2s("blake2s"),
 //	M7m("m7m","");
-	PHI2("phi2","",3,7);
+	PHI2("phi2","",3,7),
+	BCD("bcd");
 	
 	String ahashpoolKey;
 	String nicehashKey;
